@@ -20,6 +20,9 @@ import {
   BriefcaseMedical,
 } from "lucide-react";
 
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+
 export default function HowItWorksPage() {
   const [activeStep, setActiveStep] = useState(0);
 
@@ -101,39 +104,7 @@ export default function HowItWorksPage() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-teal-100 selection:text-teal-900">
       {/* 1. NAVBAR */}
-      <header className="sticky top-0 z-40 bg-[#f0f9ff]/90 backdrop-blur-md border-b border-sky-100 px-4 sm:px-8 py-3.5 transition-all">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <span className="text-2xl font-bold text-[#0e7490] tracking-tight">
-              Alaafia
-            </span>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <Link
-              href="/how-it-works"
-              className="text-[#0e7490] font-semibold transition-colors"
-            >
-              How it works
-            </Link>
-            <Link
-              href="/about"
-              className="hover:text-[#0e7490] transition-colors"
-            >
-              About
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center bg-[#0d9488] hover:bg-[#0f766e] text-white text-sm font-medium px-5 py-2 rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar activePage="how-it-works" />
 
       <main className="flex-1">
         {/* 2. HERO SECTION */}
@@ -162,7 +133,7 @@ export default function HowItWorksPage() {
 
             <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
               <Link
-                href="/#consultation"
+                href="/consultation"
                 className="inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-medium px-7 py-3.5 rounded-full shadow-lg shadow-teal-600/25 transition-all text-base"
               >
                 <Mic className="w-5 h-5" />
@@ -348,7 +319,7 @@ export default function HowItWorksPage() {
             </p>
             <div className="pt-2">
               <Link
-                href="/#consultation"
+                href="/consultation"
                 className="inline-flex items-center gap-2 bg-white text-[#0f766e] hover:bg-teal-50 font-bold px-8 py-3.5 rounded-full shadow-lg transition-all text-base"
               >
                 <Mic className="w-5 h-5 text-[#0f766e]" />
@@ -360,16 +331,7 @@ export default function HowItWorksPage() {
       </main>
 
       {/* 6. FOOTER */}
-      <footer className="bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800 px-4 sm:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span>© 2026 Alaafia AI. All rights reserved.</span>
-          <div className="flex gap-6">
-            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <Link href="/how-it-works" className="hover:text-white transition-colors">How It Works</Link>
-            <Link href="/about" className="hover:text-white transition-colors">About</Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

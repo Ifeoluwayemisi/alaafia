@@ -25,15 +25,89 @@ import {
   Activity,
 } from "lucide-react";
 
-export default function DashboardPage() {
-  // Toggle between Existing User view (with history) and New User view (empty states)
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+import EmergencyModal from "@/components/EmergencyModal";
+import LogoutModal from "@/components/LogoutModal";
+import MobileNav from "@/components/MobileNav";
+import Sidebar from "@/components/Sidebar";
 
-  // Existing user consultation history data
-  const recentConsultations = [
+export default function DashboardPage() {
+  // Automatically detected state: New User vs Returning/Existing User
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [savedConsultations, setSavedConsultations] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    // Return to landing page on refresh/reload
+    if (typeof window !== "undefined") {
+      const navEntries = performance.getEntriesByType("navigation");
+      const isReload = navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === "reload";
+      if (isReload) {
+        window.location.href = "/";
+        return;
+      }
+    }
+
+    try {
+      // 1. Check query string ?newUser=true
+      const urlParams = new URLSearchParams(window.location.search);
+      const isNewQuery = urlParams.get("newUser");
+      const storedIsNew = localStorage.getItem("alaafia_is_new_user");
+      const storedUser = localStorage.getItem("alaafia_user");
+      const storedConsultations = JSON.parse(localStorage.getItem("alaafia_saved_consultations") || "[]");
+
+      if (Array.isArray(storedConsultations) && storedConsultations.length > 0) {
+        setSavedConsultations(storedConsultations);
+      }
+
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        setUserProfile(parsed);
+
+        // Automatic detection: If newUser query is true, or user.isNewUser is true, or storedIsNew is true
+        if (isNewQuery === "true" || storedIsNew === "true" || parsed.isNewUser === true) {
+          setIsNewUser(true);
+        } else {
+          setIsNewUser(false);
+        }
+      } else {
+        if (isNewQuery === "true" || storedIsNew === "true") {
+          setIsNewUser(true);
+        } else {
+          setIsNewUser(false);
+        }
+      }
+    } catch (e) {
+      console.error("Error reading dashboard state:", e);
+    }
+  }, []);
+
+  // Time-of-day greeting (e.g. Good morning / afternoon / evening)
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Dynamic user display name & avatar initial
+  const displayName = userProfile?.firstName
+    ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
+    : userProfile?.email
+    ? userProfile.email.split("@")[0].charAt(0).toUpperCase() + userProfile.email.split("@")[0].slice(1)
+    : "there";
+
+  const userInitial = userProfile?.firstName
+    ? userProfile.firstName.charAt(0).toUpperCase()
+    : userProfile?.email
+    ? userProfile.email.charAt(0).toUpperCase()
+    : "U";
+
+  // Default user consultation history data (for existing user view)
+  const defaultConsultations = [
     {
-      id: 1,
+      id: "def-1",
       title: "Chest pain",
       time: "Today",
       outcome: "Clinic recommended",
@@ -41,7 +115,7 @@ export default function DashboardPage() {
       icon: BriefcaseMedical,
     },
     {
-      id: 2,
+      id: "def-2",
       title: "Headache",
       time: "Oct 12",
       outcome: "Self-care",
@@ -49,7 +123,7 @@ export default function DashboardPage() {
       icon: Activity,
     },
     {
-      id: 3,
+      id: "def-3",
       title: "Stomach discomfort",
       time: "Sep 28",
       outcome: "Pharmacy Visit",
@@ -58,122 +132,30 @@ export default function DashboardPage() {
     },
   ];
 
+  // Combine newly saved consultations from localStorage with defaults
+  const allConsultations = [
+    ...savedConsultations.map((item, idx) => ({
+      id: item.id || `saved-${idx}`,
+      title: item.title || "Chest discomfort & difficulty breathing",
+      time: item.time || "Just now",
+      outcome: item.outcome || "Medical assessment recommended",
+      outcomeColor: "bg-teal-50 text-teal-700 border-teal-200",
+      icon: BriefcaseMedical,
+    })),
+    ...defaultConsultations,
+  ];
+
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 font-sans selection:bg-teal-100 selection:text-teal-900">
-      {/* 1. LEFT SIDEBAR NAVIGATION */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between p-5 hidden md:flex shrink-0 sticky top-0 h-screen">
-        <div className="space-y-8">
-          {/* Logo & Category */}
-          <div className="space-y-1">
-            <Link href="/" className="flex items-center gap-2 cursor-pointer">
-              <span className="text-2xl font-bold text-[#0e7490] tracking-tight">
-                Alaafia
-              </span>
-            </Link>
-            <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase block">
-              HEALTHCARE NAVIGATOR
-            </span>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="space-y-1.5">
-            <Link
-              href="/dashboard"
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-teal-50 text-[#0e7490] border border-teal-100 shadow-xs transition-all"
-            >
-              <Home className="w-4 h-4 text-[#0e7490]" />
-              <span>Home</span>
-            </Link>
-            <Link
-              href="/consultation"
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
-            >
-              <Mic className="w-4 h-4 text-slate-400" />
-              <span>Consultation</span>
-            </Link>
-            <Link
-              href="/how-it-works"
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
-            >
-              <History className="w-4 h-4 text-slate-400" />
-              <span>History</span>
-            </Link>
-            <a
-              href="#"
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
-            >
-              <Bell className="w-4 h-4 text-slate-400" />
-              <span>Follow-ups</span>
-            </a>
-            <Link
-              href="/about"
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
-            >
-              <Compass className="w-4 h-4 text-slate-400" />
-              <span>Guidance</span>
-            </Link>
-          </nav>
-        </div>
-
-        {/* Sidebar Bottom Actions */}
-        <div className="space-y-4 pt-4 border-t border-slate-100">
-          <Link
-            href="/consultation"
-            className="w-full flex items-center justify-center gap-2 bg-[#0d9488] hover:bg-[#0f766e] text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-xs transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Consultation</span>
-          </Link>
-
-          <div className="space-y-1">
-            <button className="w-full flex items-center gap-3 px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
-              <User className="w-4 h-4 text-slate-400" />
-              <span>Profile</span>
-            </button>
-            <button className="w-full flex items-center gap-3 px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
-              <Settings className="w-4 h-4 text-slate-400" />
-              <span>Settings</span>
-            </button>
-            <button
-              onClick={() => setIsEmergencyModalOpen(true)}
-              className="w-full flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <AlertCircle className="w-4 h-4 text-red-500" />
-              <span>Emergency help</span>
-            </button>
-          </div>
-        </div>
-      </aside>
+      {/* 1. LEFT SIDEBAR NAVIGATION (CONSISTENT ACROSS ALL PAGES) */}
+      <Sidebar activeTab="home" />
 
       {/* 2. MAIN DASHBOARD CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-slate-900">Home</h1>
-            {/* View Switcher Toggle for Demo/Testing */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-medium border border-slate-200">
-              <button
-                onClick={() => setIsNewUser(false)}
-                className={`px-3 py-1 rounded-md transition-all ${
-                  !isNewUser
-                    ? "bg-white text-[#0e7490] font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                Existing User View
-              </button>
-              <button
-                onClick={() => setIsNewUser(true)}
-                className={`px-3 py-1 rounded-md transition-all ${
-                  isNewUser
-                    ? "bg-white text-[#0e7490] font-bold shadow-xs"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                New User View
-              </button>
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -181,8 +163,11 @@ export default function DashboardPage() {
               <Bell className="w-5 h-5" />
               <span className="w-2 h-2 rounded-full bg-teal-500 absolute top-2 right-2" />
             </button>
-            <div className="w-9 h-9 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-sm shadow-xs cursor-pointer">
-              R
+            <div
+              title={userProfile?.email || displayName}
+              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              {userInitial}
             </div>
           </div>
         </header>
@@ -192,7 +177,7 @@ export default function DashboardPage() {
           {/* Greeting Header */}
           <div className="space-y-1">
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              Good afternoon, Ruqayah.
+              {getGreeting()}, {displayName}.
             </h2>
             <p className="text-slate-500 text-sm">
               How can Alaafia help you today?
@@ -216,7 +201,7 @@ export default function DashboardPage() {
 
                 <div className="flex items-center gap-3 pt-2">
                   <Link
-                    href="/#consultation"
+                    href="/consultation"
                     className="inline-flex items-center gap-2.5 bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
                   >
                     <Mic className="w-4 h-4" />
@@ -236,9 +221,9 @@ export default function DashboardPage() {
                 </h3>
 
                 {!isNewUser ? (
-                  /* EXISTING USER VIEW (WITH HISTORY) */
+                  /* EXISTING USER VIEW (WITH HISTORY & SAVED CONSULTATIONS) */
                   <div className="space-y-3">
-                    {recentConsultations.map((item) => (
+                    {allConsultations.map((item) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 hover:bg-teal-50/40 border border-slate-200/60 transition-all cursor-pointer group"
@@ -261,9 +246,13 @@ export default function DashboardPage() {
                     ))}
 
                     <div className="pt-2 text-center">
-                      <button className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-1">
-                        View all history <ChevronRight className="w-3 h-3" />
-                      </button>
+                      <Link
+                        href="/history"
+                        className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>View all history</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
                     </div>
                   </div>
                 ) : (
@@ -361,7 +350,7 @@ export default function DashboardPage() {
 
                 <button
                   onClick={() => setIsEmergencyModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer"
                 >
                   <Phone className="w-3.5 h-3.5" />
                   Get emergency help
@@ -385,51 +374,20 @@ export default function DashboardPage() {
         </footer>
       </div>
 
-      {/* EMERGENCY MODAL POPUP */}
-      {isEmergencyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-red-100 shadow-2xl space-y-6 relative animate-in fade-in zoom-in duration-200">
-            <button
-              onClick={() => setIsEmergencyModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      {/* Emergency Modal */}
+      <EmergencyModal
+        isOpen={isEmergencyModalOpen}
+        onClose={() => setIsEmergencyModalOpen(false)}
+      />
 
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold">
-              <Phone className="w-6 h-6" />
-            </div>
+      {/* Logout Modal */}
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+      />
 
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-slate-900">
-                Medical Emergency Assistance
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                If you are experiencing life-threatening symptoms (chest pain, unconsciousness, severe bleeding), call national emergency services immediately.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-center space-y-1">
-              <span className="text-xs font-semibold text-red-600 uppercase tracking-widest block">
-                NATIONAL EMERGENCY TOLL-FREE
-              </span>
-              <a
-                href="tel:112"
-                className="text-3xl font-extrabold text-red-700 block tracking-tight hover:underline"
-              >
-                112
-              </a>
-            </div>
-
-            <button
-              onClick={() => setIsEmergencyModalOpen(false)}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm rounded-xl transition-all"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   );
 }

@@ -19,45 +19,17 @@ import {
   BriefcaseMedical,
 } from "lucide-react";
 
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import EmergencyModal from "@/components/EmergencyModal";
+
 export default function Home() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-teal-100 selection:text-teal-900">
       {/* 1. HEADER / NAVBAR */}
-      <header className="sticky top-0 z-40 bg-[#f0f9ff]/90 backdrop-blur-md border-b border-sky-100 px-4 sm:px-8 py-3.5 transition-all">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 cursor-pointer">
-            <span className="text-2xl font-bold text-[#0e7490] tracking-tight">
-              Alaafia
-            </span>
-          </Link>
-
-          {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <Link
-              href="/how-it-works"
-              className="hover:text-[#0e7490] transition-colors"
-            >
-              How it works
-            </Link>
-            <Link href="/about" className="hover:text-[#0e7490] transition-colors">
-              About
-            </Link>
-          </nav>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center bg-[#0d9488] hover:bg-[#0f766e] text-white text-sm font-medium px-5 py-2 rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar activePage="home" />
 
       <main className="flex-1">
         {/* 2. HERO SECTION */}
@@ -65,7 +37,6 @@ export default function Home() {
           {/* Animated Background Decorative Blur & Floating Dots */}
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-teal-200/40 rounded-full blur-3xl -z-10" />
 
-          {/* Floating particle dots */}
           <div className="absolute top-12 left-10 w-4 h-4 rounded-full bg-teal-400/40 blur-xs animate-particle-1 -z-10" />
           <div className="absolute top-1/3 right-16 w-6 h-6 rounded-full bg-teal-500/30 blur-xs animate-particle-2 -z-10" />
           <div className="absolute bottom-16 left-1/3 w-5 h-5 rounded-full bg-emerald-400/35 blur-xs animate-particle-3 -z-10" />
@@ -74,10 +45,13 @@ export default function Home() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200/60 text-teal-700 text-xs font-semibold tracking-wide uppercase">
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-teal-50 hover:bg-teal-100 border border-teal-200/60 text-teal-700 text-xs font-semibold tracking-wide uppercase transition-colors"
+              >
                 <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                Healthcare Navigation
-              </div>
+                <span>Healthcare Navigation • Learn More</span>
+              </Link>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.15]">
                 Not sure what's wrong? <br className="hidden sm:inline" />
@@ -90,39 +64,42 @@ export default function Home() {
                 guide you to your next safe step.
               </p>
 
-              {/* Action Buttons */}
+              {/* Action Buttons: "Start speaking" routes to /signin */}
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                <a
-                  href="#consultation"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium px-7 py-3.5 rounded-full shadow-lg shadow-teal-600/25 hover:shadow-teal-600/35 transition-all text-base"
+                <Link
+                  href="/signin"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold px-7 py-3.5 rounded-full shadow-lg shadow-teal-600/25 hover:shadow-teal-600/35 transition-all text-base group cursor-pointer"
                 >
-                  <Mic className="w-5 h-5" />
-                  Start speaking
-                </a>
+                  <Mic className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span>Start speaking</span>
+                </Link>
+
                 <Link
                   href="/how-it-works"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-slate-700 hover:text-teal-600 font-medium px-5 py-3 rounded-full hover:bg-slate-100/80 transition-all text-base"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-slate-700 hover:text-teal-600 font-semibold px-5 py-3 rounded-full hover:bg-slate-100/80 transition-all text-base cursor-pointer"
                 >
-                  See how it works
+                  <span>See how it works</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
-
 
               <p className="text-xs text-slate-500 font-medium">
                 No medical terms required. Just tell us what's happening.
               </p>
             </div>
 
-            {/* Right Card Preview - Floating levitation animation */}
+            {/* Right Card Preview - Links to /signin */}
             <div className="lg:col-span-5">
-              <div className="bg-white rounded-2xl p-6 shadow-2xl hover:shadow-teal-500/15 border border-slate-200/90 relative overflow-hidden animate-float hover:[animation-play-state:paused] transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+              <Link
+                href="/signin"
+                className="block bg-white rounded-2xl p-6 shadow-2xl hover:shadow-teal-500/15 border border-slate-200/90 relative overflow-hidden animate-float hover:[animation-play-state:paused] transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group"
+              >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-bl-full pointer-events-none" />
 
                 {/* Card Top */}
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
                       <Mic className="w-4 h-4" />
                     </div>
                     <span className="text-sm font-semibold text-slate-800">
@@ -143,18 +120,21 @@ export default function Home() {
                 </div>
 
                 {/* Bottom Status Tag */}
-                <div className="flex items-center gap-2 pt-2 text-xs font-medium text-teal-700 bg-teal-50/80 px-3 py-2 rounded-lg border border-teal-100">
-                  <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
-                  Analyzing symptoms and urgency level...
+                <div className="flex items-center justify-between pt-2 text-xs font-medium text-teal-700 bg-teal-50/80 px-3 py-2 rounded-lg border border-teal-100">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-teal-600 animate-spin" />
+                    <span>Analyzing symptoms & urgency...</span>
+                  </div>
+                  <span className="font-bold text-teal-800 underline">Tap to try →</span>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
 
         {/* 3. EMERGENCY RED ALERT BANNER */}
         <section className="bg-[#fee2e2] border-y border-red-200/60 px-4 sm:px-8 py-3.5">
-          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-center sm:text-left">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6 text-center sm:text-left">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-md bg-[#991b1b] text-white flex items-center justify-center shrink-0 shadow-xs">
                 <BriefcaseMedical className="w-4 h-4" />
@@ -165,14 +145,13 @@ export default function Home() {
             </div>
             <button
               onClick={() => setIsEmergencyModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-[#b91c1c] hover:bg-[#991b1b] text-white text-sm font-semibold px-5 py-2 rounded-full shadow-sm hover:shadow transition-all shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-5 py-2 rounded-full shadow-sm hover:shadow transition-all shrink-0 cursor-pointer"
             >
               <Phone className="w-4 h-4" />
-              Get emergency help now
+              <span>Get emergency help now</span>
             </button>
           </div>
         </section>
-
 
         {/* 4. PROCESS FLOW: From uncertainty to your next step. */}
         <section id="how-it-works" className="px-4 sm:px-8 py-20 bg-slate-100/60">
@@ -189,84 +168,96 @@ export default function Home() {
               </p>
             </div>
 
-            {/* 4 Cards Grid */}
+            {/* 4 Cards Grid - All Clickable */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Step 1 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+              <Link
+                href="/signin"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md hover:border-teal-300 transition-all space-y-4 group cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg group-hover:bg-teal-600 group-hover:text-white transition-colors">
                   <Mic className="w-6 h-6" />
                 </div>
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold text-teal-600 uppercase tracking-wider">
                     01. Speak
                   </span>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
                     Describe it
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Tell us what you're feeling in your own words or native language.
                   </p>
                 </div>
-              </div>
+              </Link>
 
               {/* Step 2 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+              <Link
+                href="/how-it-works"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md hover:border-teal-300 transition-all space-y-4 group cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg group-hover:bg-teal-600 group-hover:text-white transition-colors">
                   <MessageSquare className="w-6 h-6" />
                 </div>
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold text-teal-600 uppercase tracking-wider">
                     02. Understand
                   </span>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
                     AI Translation
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Our AI structures your input into clinical-grade symptom profiles.
                   </p>
                 </div>
-              </div>
+              </Link>
 
               {/* Step 3 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+              <Link
+                href="/services"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md hover:border-teal-300 transition-all space-y-4 group cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg group-hover:bg-teal-600 group-hover:text-white transition-colors">
                   <Compass className="w-6 h-6" />
                 </div>
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold text-teal-600 uppercase tracking-wider">
                     03. Guide
                   </span>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
                     Clear Options
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Receive immediate, human-readable advice on what to do next.
                   </p>
                 </div>
-              </div>
+              </Link>
 
               {/* Step 4 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md transition-all space-y-4">
-                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+              <Link
+                href="/signin"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md hover:border-teal-300 transition-all space-y-4 group cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg group-hover:bg-teal-600 group-hover:text-white transition-colors">
                   <MapPin className="w-6 h-6" />
                 </div>
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold text-teal-600 uppercase tracking-wider">
                     04. Connect
                   </span>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-slate-900 group-hover:text-teal-700 transition-colors">
                     Find Care
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     We connect you to the nearest appropriate facility or specialist.
                   </p>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* 5. SIDE BY SIDE COMPARISON: Healthcare guidance should feel human. */}
+        {/* 5. SIDE BY SIDE COMPARISON */}
         <section id="services" className="px-4 sm:px-8 py-20 bg-white">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-3 max-w-2xl mx-auto">
@@ -279,13 +270,12 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Comparison Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Left: WHAT YOU SAY */}
               <div className="bg-teal-50/50 rounded-2xl p-6 sm:p-8 border border-teal-100 space-y-6">
                 <div className="flex items-center gap-2 text-xs font-bold text-teal-700 uppercase tracking-wider">
                   <User className="w-4 h-4" />
-                  What You Say
+                  <span>What You Say</span>
                 </div>
 
                 <div className="bg-white rounded-xl p-5 border border-slate-200/70 shadow-xs text-slate-700 text-sm sm:text-base leading-relaxed italic">
@@ -294,15 +284,18 @@ export default function Home() {
 
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                   <span className="w-2 h-2 rounded-full bg-teal-500" />
-                  Natural language • No medical jargon required
+                  <span>Natural language • No medical jargon required</span>
                 </div>
               </div>
 
-              {/* Right: WHAT ALAAFIA UNDERSTANDS - Floating Levitation Animation */}
-              <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-800 relative animate-float-slow hover:[animation-play-state:paused] transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+              {/* Right: WHAT ALAAFIA UNDERSTANDS */}
+              <Link
+                href="/signin"
+                className="block bg-slate-900 text-white rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-800 relative animate-float-slow hover:[animation-play-state:paused] transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+              >
                 <div className="flex items-center gap-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
                   <CheckCircle2 className="w-4 h-4 text-teal-400" />
-                  What Alaafia Understands
+                  <span>What Alaafia Understands</span>
                 </div>
 
                 <div className="space-y-3">
@@ -333,12 +326,12 @@ export default function Home() {
                     </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* 6. SAFETY GRID: Built to guide, not diagnose. */}
+        {/* 6. SAFETY GRID */}
         <section id="safety" className="px-4 sm:px-8 py-20 bg-slate-100/60">
           <div className="max-w-6xl mx-auto space-y-12">
             <div className="text-center space-y-3 max-w-2xl mx-auto">
@@ -349,7 +342,10 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Feature 1 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4">
+              <Link
+                href="/safety"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4 hover:shadow-md hover:border-teal-300 transition-all block cursor-pointer"
+              >
                 <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
                   <Sparkles className="w-6 h-6" />
                 </div>
@@ -360,10 +356,13 @@ export default function Home() {
                   Our models are trained on clinical guidelines to accurately
                   interpret your natural speech.
                 </p>
-              </div>
+              </Link>
 
               {/* Feature 2 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4">
+              <Link
+                href="/safety"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4 hover:shadow-md hover:border-teal-300 transition-all block cursor-pointer"
+              >
                 <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
                   <ShieldCheck className="w-6 h-6" />
                 </div>
@@ -374,10 +373,13 @@ export default function Home() {
                   Strict safety parameters ensure conservative guidance, always
                   defaulting to higher caution.
                 </p>
-              </div>
+              </Link>
 
               {/* Feature 3 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4">
+              <Link
+                href="/safety"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4 hover:shadow-md hover:border-teal-300 transition-all block cursor-pointer"
+              >
                 <div className="w-12 h-12 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
                   <UserCheck className="w-6 h-6" />
                 </div>
@@ -388,12 +390,12 @@ export default function Home() {
                   We provide the map, you and your registered healthcare
                   provider make the final decisions.
                 </p>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* 7. BOTTOM CTA CARD */}
+        {/* 7. BOTTOM CTA CARD: "Start speaking now" routes to /signin */}
         <section id="consultation" className="px-4 sm:px-8 py-20 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="bg-gradient-to-br from-teal-500/10 via-teal-500/5 to-emerald-500/10 border border-teal-200/80 rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-xl relative overflow-hidden">
@@ -413,18 +415,18 @@ export default function Home() {
               </div>
 
               <div className="pt-2">
-                <button
-                  onClick={() => alert("Starting voice consultation mode...")}
-                  className="inline-flex items-center gap-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold px-8 py-4 rounded-full shadow-lg shadow-teal-600/30 hover:shadow-teal-600/40 transition-all text-base"
+                <Link
+                  href="/signin"
+                  className="inline-flex items-center gap-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold px-8 py-4 rounded-full shadow-lg shadow-teal-600/30 hover:shadow-teal-600/40 transition-all text-base cursor-pointer"
                 >
-                  Start speaking now
+                  <span>Start speaking now</span>
                   <ArrowRight className="w-5 h-5" />
-                </button>
+                </Link>
               </div>
 
               <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium pt-2">
                 <Lock className="w-3.5 h-3.5 text-teal-600" />
-                Your conversation is secure and private.
+                <span>Your conversation is secure and private.</span>
               </div>
             </div>
           </div>
@@ -432,75 +434,12 @@ export default function Home() {
       </main>
 
       {/* 8. FOOTER */}
-      <footer id="about" className="bg-slate-100 border-t border-slate-200 px-4 sm:px-8 py-12">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
-          {/* Left Info */}
-          <div className="space-y-3 max-w-md">
-            <div className="flex items-center justify-center md:justify-start gap-2">
-              <div className="w-6 h-6 rounded-md bg-teal-600 flex items-center justify-center text-white text-xs font-bold">
-                ❖
-              </div>
-              <span className="text-lg font-bold text-slate-900">Alaafia</span>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              © 2026 Alaafia Health. All rights reserved. Providing AI-driven
-              healthcare navigation for Nigeria.
-            </p>
-          </div>
+      <Footer />
 
-          {/* Right Links */}
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-medium text-slate-600">
-            <a href="#privacy" className="hover:text-teal-600 transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#terms" className="hover:text-teal-600 transition-colors">
-              Terms of Service
-            </a>
-            <a href="#disclaimer" className="hover:text-teal-600 transition-colors">
-              Medical Disclaimer
-            </a>
-            <a href="#support" className="hover:text-teal-600 transition-colors">
-              Contact Support
-            </a>
-          </div>
-        </div>
-      </footer>
-
-      {/* EMERGENCY MODAL POPUP */}
-      {isEmergencyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-red-100 text-center animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-8 h-8" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-slate-900">
-                Medical Emergency Assistance
-              </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                If you or someone nearby is experiencing severe chest pain, loss of consciousness, or difficulty breathing, please contact emergency service immediately.
-              </p>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <a
-                href="tel:112"
-                className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-full shadow-lg shadow-red-600/30 transition-all text-base"
-              >
-                <Phone className="w-5 h-5" />
-                Call Emergency Line (112)
-              </a>
-              <button
-                onClick={() => setIsEmergencyModalOpen(false)}
-                className="w-full text-xs font-semibold text-slate-500 hover:text-slate-800 py-2 transition-colors"
-              >
-                Dismiss & Return
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EmergencyModal
+        isOpen={isEmergencyModalOpen}
+        onClose={() => setIsEmergencyModalOpen(false)}
+      />
     </div>
   );
 }
