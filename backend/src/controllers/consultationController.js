@@ -4,7 +4,7 @@
  * Voice Input → Transcription → Symptom Extraction → Triage → Facility Matching
  */
 
-const GoogleCloudAI = require("../integrations/googleCloud");
+const OpenAIIntegration = require("../integrations/openai");
 const { TriageEngine } = require("../triage");
 const FacilityMatchingService = require("../services/facilityMatching");
 const { Consultation, TriageResult } = require("../models");
@@ -68,7 +68,7 @@ class ConsultationController {
       }
 
       // Initialize Google Cloud AI
-      const gcAI = new GoogleCloudAI();
+      const openAI = new OpenAIIntegration();
 
       // ====================================================================
       // STEP 1: Process input (transcribe if audio, or use text)
@@ -79,7 +79,7 @@ class ConsultationController {
       if (isAudio && audioBase64) {
         // Transcribe audio
         const audioBuffer = Buffer.from(audioBase64, "base64");
-        const transcriptionResult = await gcAI.transcribeAudio(
+        const transcriptionResult = await openAI.transcribeAudio(
           audioBuffer,
           language,
         );
@@ -101,7 +101,10 @@ class ConsultationController {
       // ====================================================================
       // STEP 2: Extract symptoms and structure input
       // ====================================================================
-      const extractionResult = await gcAI.extractSymptoms(transcript);
+      const extractionResult = await openAI.extractSymptoms(
+        transcript,
+        language,
+      );
 
       structuredInput = {
         symptoms: extractionResult.symptoms,

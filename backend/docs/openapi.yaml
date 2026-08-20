@@ -1,0 +1,747 @@
+openapi: 3.0.3
+info:
+  title: ALAFIA Backend API
+  version: 1.0.0
+  description: |
+    REST API for ALAFIA, a voice-first, safety-controlled healthcare navigation platform.
+    AI structures user input; deterministic ALAFIA rules control triage severity.
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development
+  - url: https://api.alafia.ai/api/v1
+    description: Production placeholder
+
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Consultation
+  - name: Triage
+  - name: Hospitals
+  - name: Facilities
+  - name: Emergency
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check API health
+      responses:
+        "200":
+          description: API is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /auth/guest:
+    post:
+      tags: [Authentication]
+      summary: Create a guest session
+      description: Creates an expiring anonymous session for emergency access without registration.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestSessionRequest"
+      responses:
+        "201":
+          description: Guest session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestSessionResponse"
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a user
+      description: Creates a user and sends a six-digit email verification code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "202":
+          description: Account created; verification required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Email already exists
+
+  /auth/resend-verification:
+    post:
+      tags: [Authentication]
+      summary: Resend email verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "200":
+          description: Verification code sent
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Email is already verified
+
+  /auth/verify-email:
+    post:
+      tags: [Authentication]
+      summary: Verify a user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+      responses:
+        "200":
+          description: Email verified and welcome email attempted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifiedUserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+        "403":
+          description: Email is not verified
+
+  /auth/google:
+    post:
+      tags: [Authentication]
+      summary: Log in with a Google ID token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken:
+                  type: string
+                  description: ID token obtained by the frontend from Google Identity Services.
+      responses:
+        "200":
+          description: Google login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Google token or email is invalid
+
+  /consultations:
+    post:
+      tags: [Consultation]
+      summary: Create a text consultation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConsultationRequest"
+      responses:
+        "201":
+          description: Consultation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultationCreatedResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /consultations/{consultationId}/message:
+    post:
+      tags: [Consultation]
+      summary: Add a consultation message
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  { type: string, example: It started about 20 minutes ago. }
+                language: { type: string, default: en-NG, example: en-NG }
+      responses:
+        "200":
+          description: Message recorded
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /consultations/{consultationId}/voice:
+    post:
+      tags: [Consultation]
+      summary: Transcribe a voice recording
+      description: Raw audio is processed in memory and is not persisted by ALAFIA.
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Browser-recorded audio file, commonly WebM.
+                language:
+                  type: string
+                  default: en-NG
+                  enum: [en-NG, pcm, yo-NG, ha-NG, ig-NG]
+      responses:
+        "200":
+          description: Transcript returned for confirmation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      transcript: { type: string }
+                      language: { type: string }
+                      confidence: { type: number, format: float }
+                      requiresConfirmation: { type: boolean }
+                  message: { type: string }
+        "422":
+          description: Transcription failed
+
+  /consultations/{consultationId}/confirm-transcript:
+    post:
+      tags: [Consultation]
+      summary: Confirm a voice transcript
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transcript, confirmed]
+              properties:
+                transcript: { type: string }
+                confirmed: { type: boolean, example: true }
+      responses:
+        "200":
+          description: Transcript confirmed; consultation can proceed to triage
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /consultations/{consultationId}:
+    get:
+      tags: [Consultation]
+      summary: Retrieve a consultation
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      responses:
+        "200":
+          description: Consultation retrieved
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /triage:
+    post:
+      tags: [Triage]
+      summary: Run deterministic triage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consultationId]
+              properties:
+                consultationId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Triage assessment completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /triage/{consultationId}:
+    get:
+      tags: [Triage]
+      summary: Retrieve the latest triage assessment
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      responses:
+        "200":
+          description: Triage assessment retrieved
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /guidance/{consultationId}:
+    get:
+      tags: [Triage]
+      summary: Retrieve safety guidance
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      responses:
+        "200":
+          description: Safety guidance retrieved
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /hospitals/nearby:
+    get:
+      tags: [Hospitals]
+      summary: Find nearby hospitals and facilities
+      parameters:
+        - $ref: "#/components/parameters/Latitude"
+        - $ref: "#/components/parameters/Longitude"
+        - name: radius
+          in: query
+          schema: { type: number, default: 15 }
+          description: Search radius in kilometres.
+      responses:
+        "200":
+          description: Nearby facilities retrieved
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /hospitals/recommended:
+    get:
+      tags: [Hospitals]
+      summary: Get capability-aware hospital recommendations
+      parameters:
+        - name: consultationId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/Latitude"
+        - $ref: "#/components/parameters/Longitude"
+        - name: radius
+          in: query
+          schema: { type: number, default: 15 }
+      responses:
+        "200":
+          description: Ranked recommendations with explanations and readiness state
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Triage is required first
+
+  /hospitals/{hospitalId}:
+    get:
+      tags: [Hospitals]
+      summary: Get hospital details
+      parameters:
+        - $ref: "#/components/parameters/HospitalId"
+      responses:
+        "200":
+          description: Hospital details retrieved
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /hospitals/{hospitalId}/select:
+    post:
+      tags: [Hospitals]
+      summary: Select a hospital for a consultation
+      parameters:
+        - $ref: "#/components/parameters/HospitalId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consultationId]
+              properties:
+                consultationId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Hospital selected with navigation coordinates
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /facilities:
+    get:
+      tags: [Facilities]
+      summary: List all facilities
+      responses:
+        "200":
+          description: Facilities retrieved
+    post:
+      tags: [Facilities]
+      summary: Create a simulated facility
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FacilityInput"
+      responses:
+        "201":
+          description: Facility created
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /facilities/search:
+    post:
+      tags: [Facilities]
+      summary: Search facilities by location and capability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude]
+              properties:
+                latitude: { type: number, example: 6.5244 }
+                longitude: { type: number, example: 3.3792 }
+                severity: { $ref: "#/components/schemas/Severity" }
+                capabilities:
+                  type: array
+                  items: { type: string }
+                maxDistance: { type: number, default: 15 }
+      responses:
+        "200":
+          description: Ranked facility results
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /emergency/activate:
+    post:
+      tags: [Emergency]
+      summary: Activate Emergency Mode
+      description: Only CRITICAL triage assessments can activate Emergency Mode.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [consultationId, hospitalId]
+              properties:
+                consultationId: { type: string, format: uuid }
+                hospitalId: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Emergency case activated
+        "409":
+          description: Assessment is not CRITICAL
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /emergency/{emergencyId}/summary:
+    post:
+      tags: [Emergency]
+      summary: Generate an emergency summary and handoff record
+      parameters:
+        - name: emergencyId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patientConsent: { type: boolean, example: true }
+      responses:
+        "200":
+          description: Emergency summary generated
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    ConsultationId:
+      name: consultationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    HospitalId:
+      name: hospitalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Latitude:
+      name: latitude
+      in: query
+      required: true
+      schema: { type: number, example: 6.5244 }
+    Longitude:
+      name: longitude
+      in: query
+      required: true
+      schema: { type: number, example: 3.3792 }
+  responses:
+    ValidationError:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    Severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    HealthResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        service: { type: string }
+        timestamp: { type: string, format: date-time }
+    GuestSessionRequest:
+      type: object
+      properties:
+        language: { type: string, default: en-NG }
+        location:
+          type: object
+          properties:
+            latitude: { type: number, example: 6.5244 }
+            longitude: { type: number, example: 3.3792 }
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, example: Racheal Olayode }
+        email: { type: string, format: email }
+        phone: { type: string, example: "+2348012345678" }
+        password: { type: string, format: password, minLength: 8 }
+    EmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    VerifyEmailRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email: { type: string, format: email }
+        code: { type: string, pattern: "^[0-9]{6}$", example: "123456" }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    CreateConsultationRequest:
+      type: object
+      required: [message]
+      properties:
+        sessionId: { type: string, format: uuid }
+        inputType: { type: string, enum: [TEXT, VOICE], default: TEXT }
+        message:
+          {
+            type: string,
+            example: I have severe chest pain and difficulty breathing.,
+          }
+        language: { type: string, default: en-NG }
+        location:
+          type: object
+          properties:
+            latitude: { type: number }
+            longitude: { type: number }
+    FacilityInput:
+      type: object
+      required: [name, facilityType, latitude, longitude]
+      properties:
+        name: { type: string }
+        facilityType:
+          { type: string, enum: [hospital, clinic, urgent_care, pharmacy] }
+        latitude: { type: number }
+        longitude: { type: number }
+        address: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        capabilities:
+          type: array
+          items: { type: string }
+        emergencyCapable: { type: boolean, default: false }
+        dataSource: { type: string, default: simulated }
+        verificationStatus:
+          { type: string, enum: [verified, unverified, pending] }
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, nullable: true }
+        role: { type: string, enum: [PATIENT, PROVIDER, ADMIN] }
+        emailVerified: { type: boolean }
+    AuthData:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        token: { type: string }
+    GuestSessionResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            sessionId: { type: string, format: uuid }
+            userType: { type: string, example: GUEST }
+            expiresAt: { type: string, format: date-time }
+        message: { type: string }
+    RegisterResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            user: { $ref: "#/components/schemas/User" }
+            verification:
+              type: object
+              properties:
+                expiresAt: { type: string, format: date-time }
+                delivery: { type: string, enum: [EMAIL, DEVELOPMENT_RESPONSE] }
+                developmentCode: { type: string, nullable: true }
+        message: { type: string }
+    VerifiedUserResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            user: { $ref: "#/components/schemas/User" }
+            welcomeEmailSent: { type: boolean }
+        message: { type: string }
+    LoginResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { $ref: "#/components/schemas/AuthData" }
+        message: { type: string }
+    ConsultationCreatedResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            consultation:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                status: { type: string, example: ACTIVE }
+                createdAt: { type: string, format: date-time }
+            extraction:
+              type: object
+              properties:
+                symptoms:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      confidence: { type: number, format: float }
+            nextStep:
+              type: object
+              properties:
+                type: { type: string }
+                question: { type: string, nullable: true }
+        message: { type: string }
+    TriageResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        data:
+          type: object
+          properties:
+            assessmentId: { type: string, format: uuid }
+            severity: { $ref: "#/components/schemas/Severity" }
+            confidence: { type: string, enum: [LOW, MEDIUM, HIGH] }
+            redFlags:
+              type: array
+              items: { type: string }
+            requiredCare:
+              type: object
+              properties:
+                emergencyCare: { type: boolean }
+                specialties:
+                  type: array
+                  items: { type: string }
+                capabilities:
+                  type: array
+                  items: { type: string }
+            guidance:
+              type: object
+              properties:
+                title: { type: string }
+                instructions:
+                  type: array
+                  items: { type: string }
+            rulesVersion: { type: string }
+        message: { type: string }
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              items: {}

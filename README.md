@@ -86,7 +86,7 @@ User
   ↓
 Voice or text input
   ↓
-Google Cloud Speech-to-Text for audio
+OpenAI Whisper for audio transcription
   ↓
 Structured symptom extraction and normalization
   ↓
@@ -168,9 +168,8 @@ Clinical deployment requires formal clinical validation, medical governance, and
 
 ### AI and voice
 
-- Google Cloud Speech-to-Text adapter.
-- Google Cloud Natural Language analysis with keyword fallback.
-- Google Cloud Text-to-Speech method.
+- OpenAI Whisper transcription adapter.
+- OpenAI structured symptom extraction with deterministic keyword fallback.
 - YarnGPT Text-to-Speech adapter for Nigerian-language voice output.
 - Symptom normalization across string and object-shaped provider responses.
 - Deterministic triage independent of generated language responses.
@@ -301,9 +300,8 @@ The backend owns authentication, database access, speech integrations, symptom p
 
 ### External services
 
-- Google Cloud Speech-to-Text
-- Google Cloud Natural Language
-- Google Cloud Text-to-Speech
+- OpenAI Whisper
+- OpenAI structured extraction
 - YarnGPT Text-to-Speech
 - Google OAuth ID-token verification
 
@@ -316,7 +314,7 @@ The backend owns authentication, database access, speech integrations, symptom p
 - Node.js
 - PostgreSQL
 - npm
-- Google Cloud credentials if using Google speech services
+- OpenAI API key for live transcription and structured extraction
 - YarnGPT API key if using YarnGPT voice output
 
 ### Install dependencies
@@ -338,9 +336,6 @@ FRONTEND_URL=http://localhost:3000
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/Alaafia_db
 JWT_SECRET=replace-with-a-long-random-secret
 
-GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\service-account.json
-GOOGLE_CLOUD_PROJECT_ID=your-project-id
-VERTEX_AI_LOCATION=us-central1
 GOOGLE_CLIENT_ID=your-web-client-id
 
 YARNGPT_API_KEY=your-yarngpt-key
@@ -442,7 +437,7 @@ For voice testing, use the `Upload Voice Recording` request with a `.webm` file 
 - NHFR/HFR synchronization. NHFR has not yet provided API access, so simulated facilities are used and labelled accordingly.
 - Verified partner-facility data.
 - Wema integration, pending official API/product access.
-- Real browser audio testing through Google Speech-to-Text.
+- Real browser audio testing through OpenAI Whisper.
 - Full provider readiness workflow.
 - Production clinical validation.
 

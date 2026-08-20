@@ -1,11 +1,11 @@
-const GoogleCloudAI = require("../integrations/googleCloud");
+const OpenAIIntegration = require("../integrations/openai");
 const { Consultation, ConsultationMessage, Symptom } = require("../models");
 const {
   normalizeSymptoms,
   confidenceToNumber,
 } = require("../services/symptomNormalizer");
 
-const ai = () => new GoogleCloudAI();
+const ai = () => new OpenAIIntegration();
 
 const extract = async (text) => {
   const result = await ai().extractSymptoms(text);

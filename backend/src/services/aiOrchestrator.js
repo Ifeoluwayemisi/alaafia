@@ -1,4 +1,4 @@
-const GoogleCloudAI = require("../integrations/googleCloud");
+const OpenAIIntegration = require("../integrations/openai");
 const YarnGPT = require("../integrations/yarngpt");
 const { TriageEngine } = require("../triage");
 const {
@@ -8,7 +8,7 @@ const {
 
 class AIOrchestrator {
   constructor({
-    speechAndAnalysis = new GoogleCloudAI(),
+    speechAndAnalysis = new OpenAIIntegration(),
     voiceOutput = new YarnGPT(),
   } = {}) {
     this.speechAndAnalysis = speechAndAnalysis;

@@ -7,7 +7,7 @@ The ALAFIA backend is a Node.js/Express API that implements the core healthcare 
 ```
 USER VOICE/TEXT INPUT
         ↓
-    [Speech-to-Text via Google Cloud]
+    [Speech-to-Text via OpenAI Whisper]
         ↓
   [Symptom Extraction via NLU]
         ↓
@@ -27,7 +27,7 @@ USER VOICE/TEXT INPUT
 - **Runtime**: Node.js
 - **Framework**: Express.js
 - **Database**: PostgreSQL + Sequelize ORM
-- **AI Services**: Google Cloud (Speech-to-Text, Natural Language, Text-to-Speech)
+- **AI Services**: OpenAI (Whisper transcription and structured extraction) + YarnGPT Text-to-Speech
 - **Authentication**: JWT (ready to implement)
 - **Validation**: Express validation middleware
 
@@ -47,7 +47,8 @@ src/
 │   ├── rules.js                 # Red flags, patterns, thresholds
 │   └── index.js
 ├── integrations/
-│   └── googleCloud.js           # Speech-to-Text, NLU, TTS
+│   ├── openai.js                # Whisper transcription and structured extraction
+│   └── yarngpt.js               # Nigerian-language text-to-speech
 ├── services/
 │   └── facilityMatching.js      # Capability + distance ranking
 ├── controllers/
@@ -86,8 +87,14 @@ DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
 
-# Google Cloud
-GOOGLE_APPLICATION_CREDENTIALS=path/to/your-google-cloud-key.json
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TRANSCRIPTION_MODEL=whisper-1
+
+# YarnGPT
+YARNGPT_API_KEY=your-yarngpt-api-key
+YARNGPT_BASE_URL=https://yarngpt.ai
 
 # Server
 PORT=5000
@@ -401,17 +408,20 @@ curl -X POST http://localhost:5000/api/v1/facilities/search \
 
 ## Environment Variables Reference
 
-| Variable                         | Description                | Default                 |
-| -------------------------------- | -------------------------- | ----------------------- |
-| `DB_NAME`                        | PostgreSQL database name   | `alafia_db`             |
-| `DB_USER`                        | PostgreSQL user            | `postgres`              |
-| `DB_PASSWORD`                    | PostgreSQL password        | `postgres`              |
-| `DB_HOST`                        | PostgreSQL host            | `localhost`             |
-| `DB_PORT`                        | PostgreSQL port            | `5432`                  |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Google Cloud key file path | (required)              |
-| `PORT`                           | Server port                | `5000`                  |
-| `NODE_ENV`                       | Environment                | `development`           |
-| `FRONTEND_URL`                   | Frontend CORS origin       | `http://localhost:3000` |
+| Variable                     | Description                 | Default                 |
+| ---------------------------- | --------------------------- | ----------------------- |
+| `DB_NAME`                    | PostgreSQL database name    | `alafia_db`             |
+| `DB_USER`                    | PostgreSQL user             | `postgres`              |
+| `DB_PASSWORD`                | PostgreSQL password         | `postgres`              |
+| `DB_HOST`                    | PostgreSQL host             | `localhost`             |
+| `DB_PORT`                    | PostgreSQL port             | `5432`                  |
+| `OPENAI_API_KEY`             | OpenAI API key              | (required for live AI)  |
+| `OPENAI_MODEL`               | Structured extraction model | `gpt-4o-mini`           |
+| `OPENAI_TRANSCRIPTION_MODEL` | Audio transcription model   | `whisper-1`             |
+| `YARNGPT_API_KEY`            | YarnGPT TTS API key         | (required for live TTS) |
+| `PORT`                       | Server port                 | `5000`                  |
+| `NODE_ENV`                   | Environment                 | `development`           |
+| `FRONTEND_URL`               | Frontend CORS origin        | `http://localhost:3000` |
 
 ## License
 
