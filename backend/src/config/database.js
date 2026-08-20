@@ -7,13 +7,20 @@ const commonOptions = {
   pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
 };
 
+const useDatabaseSsl = process.env.DATABASE_SSL === "true";
+
 const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, {
       ...commonOptions,
-      dialectOptions:
-        process.env.NODE_ENV === "production"
-          ? { ssl: { require: true, rejectUnauthorized: false } }
-          : {},
+      dialectOptions: useDatabaseSsl
+        ? {
+            ssl: {
+              require: true,
+              rejectUnauthorized:
+                process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false",
+            },
+          }
+        : {},
     })
   : new Sequelize(
       process.env.DB_NAME || "alafia_db",

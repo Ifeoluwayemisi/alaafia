@@ -11,8 +11,8 @@ const startServer = async () => {
   try {
     // Create missing tables without Sequelize's destructive alter workflow.
     // Schema changes should be handled through migrations once the MVP schema stabilizes.
-    await ensureSchema(sequelize);
     await sequelize.sync();
+    await ensureSchema(sequelize);
     console.log("✅ Database synchronized");
 
     // Start server
