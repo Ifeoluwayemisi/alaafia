@@ -1,211 +1,491 @@
-# 🩺 Alafia AI
+# Alaafia 🩺
 
 > **From uncertainty to appropriate care.**
 
-Alafia AI is a voice-first, safety-controlled healthcare navigation platform designed for the Nigerian context.
+Alaafia is a voice-first, safety-controlled healthcare navigation platform designed for the Nigerian context. It helps users describe symptoms, understand potential urgency, receive safety guidance, and identify healthcare facilities appropriate to their situation.
 
-It helps people move from **uncertain symptoms to clear next steps and appropriate care** by combining voice interaction, structured symptom understanding, deterministic triage, healthcare-facility matching, emergency guidance, navigation, and future provider coordination.
-
----
-
-## 🚀 Hackathon
-
-**Hackathon:** Hackaholics 7.0  
-**Organizer:** Wema Bank  
-**Location:** Lagos, Nigeria  
-**Team:** Recursive R's  
-**Product:** Alafia AI
+Alaafia is not a diagnostic chatbot. Its purpose is to reduce the delay between a worrying symptom appearing and a person reaching appropriate care.
 
 ---
 
-# 📌 Table of Contents
+## Team Members
 
-- [Overview](#-overview)
-- [The Problem](#-the-problem)
-- [Our Solution](#-our-solution)
-- [How Alafia Works](#-how-alafia-works)
-- [Core Product Flow](#-core-product-flow)
-- [Key Features](#-key-features)
-- [MVP Scope](#-mvp-scope)
-- [Real vs Prototype Features](#-real-vs-prototype-features)
-- [Hospital Readiness](#-hospital-readiness)
-- [Wema Bank Ecosystem](#-wema-bank-ecosystem)
-- [Business Model](#-business-model)
-- [Target Users](#-target-users)
-- [Product Architecture](#-product-architecture)
-- [Repository Structure](#-repository-structure)
-- [Tech Stack](#-tech-stack)
-- [Frontend](#-frontend)
-- [Backend](#-backend)
-- [API Structure](#-api-structure)
-- [Environment Variables](#-environment-variables)
-- [Local Development](#-local-development)
-- [Running the Frontend](#-running-the-frontend)
-- [Running the Backend](#-running-the-backend)
-- [Health Check](#-health-check)
-- [Development Workflow](#-development-workflow)
-- [Team Roles](#-team-roles)
-- [Safety & Responsible AI](#-safety--responsible-ai)
-- [Privacy & Data Protection](#-privacy--data-protection)
-- [Future Roadmap](#-future-roadmap)
-- [Winning Demo](#-winning-demo)
-- [Project Status](#-project-status)
-- [Contributing](#-contributing)
-- [License](#-license)
+- **Racheal Olayode**: Backend Developer
+- **Rukayat Fashina**: Product Designer
+- **Dauda Mariam**: Frontend Developer
 
 ---
 
-# 🌍 Overview
+## Live Demo
 
-Healthcare emergencies often begin with uncertainty.
+- **Live application**: To be added
+- **Backend API**: To be added
+- **Recorded demo**: To be added
 
-A person may experience:
+Local backend URL:
 
-- Chest pain
-- Difficulty breathing
-- Severe fever
-- Sudden weakness
-- Severe abdominal pain
-- Loss of consciousness
-- Other potentially serious symptoms
-
-But the immediate question is often:
-
-> **"How serious is this, and where should I go?"**
-
-Alafia AI is designed to help answer that question safely.
-
-Instead of functioning as another generic medical chatbot, Alafia focuses on:
-
-1. Understanding what the user is experiencing.
-2. Asking relevant follow-up questions.
-3. Detecting potential red flags.
-4. Classifying urgency using deterministic safety rules.
-5. Providing appropriate next-step guidance.
-6. Identifying suitable healthcare facilities.
-7. Helping the user choose and navigate to a facility.
-8. Preparing an emergency summary for potential provider handoff.
+```text
+http://localhost:5000
+```
 
 ---
 
-# 🚨 The Problem
+## The Problem
 
-In many healthcare situations, the biggest risk is not necessarily the illness itself.
+Healthcare emergencies often begin with uncertainty. Someone may experience chest pain, difficulty breathing, severe bleeding, seizures, sudden weakness, or another warning sign without knowing how serious it is or what to do next.
 
-It is **delay**.
+Even after deciding to seek care, finding the right facility can be difficult. The nearest hospital is not always the most suitable hospital. A facility may lack the required capability, specialty, or known emergency service.
 
-People may:
+This creates dangerous delays between:
 
-- Ignore serious symptoms.
-- Assume symptoms are minor.
-- Self-medicate.
-- Wait too long before seeking care.
-- Struggle to explain symptoms.
-- Face language barriers.
-- Choose a hospital based only on distance.
-- Not know which facility has the appropriate capability.
-- Arrive at an unsuitable facility.
-- Repeat the same information multiple times.
+```text
+Recognizing a health problem → deciding what to do → reaching appropriate care
+```
 
-This creates a gap between:
+### How Might We?
 
-**Symptom → Understanding → Decision → Appropriate Care**
-
-Alafia is designed to reduce that gap.
+> **How might we help people recognize potentially serious health situations early and connect them with appropriate healthcare facilities quickly and safely?**
 
 ---
 
-# 💡 Our Solution
+## Our Solution
 
-Alafia AI provides a single flow:
+Alaafia combines voice/text consultation, structured symptom understanding, deterministic triage, safety guidance, capability-aware facility matching, navigation data, and emergency summaries.
 
-> **Speak → Understand → Triage → Guide → Route → Handoff**
+```text
+Speak → Understand → Triage → Guide → Route → Handoff
+```
 
-A user can describe their symptoms naturally using their voice.
+Users can:
 
-Alafia then:
+- Start as a guest without registering first.
+- Describe symptoms using text or voice.
+- Confirm a speech transcript before it is processed.
+- Continue a consultation with additional messages.
+- Receive a LOW, MEDIUM, HIGH, or CRITICAL urgency classification.
+- See why a case was escalated.
+- Receive immediate safety guidance.
+- Find facilities ranked by capability and distance.
+- View facility coordinates and details.
+- Select a facility and receive navigation coordinates.
+- Activate Emergency Mode for CRITICAL cases.
+- Generate an emergency summary and simulated handoff record.
 
-1. Converts speech into structured information.
-2. Asks targeted follow-up questions.
-3. Identifies potential red flags.
-4. Applies deterministic triage rules.
-5. Assigns a severity level.
-6. Provides appropriate safety guidance.
-7. Finds relevant healthcare facilities.
-8. Ranks facilities based on suitability.
-9. Allows the user to select a facility.
-10. Provides navigation.
-11. Generates a structured emergency summary.
+### Core Principle
 
----
+> **AI helps us understand the patient. Deterministic safety rules help us protect the patient.**
 
-# 🧠 How Alafia Works
-
-Alafia separates **AI language understanding** from **safety-critical decision-making**.
-
-### AI handles:
-
-- Speech-to-text
-- Understanding natural language
-- Multilingual interaction
-- Extracting relevant information
-- Generating understandable responses
-- Text-to-speech where required
-
-### Deterministic rules handle:
-
-- Red-flag detection
-- Severity classification
-- Emergency escalation
-- Safety-critical decisions
-
-This creates an important principle:
-
-> **AI understands. Rules protect.**
-
-AI should not be allowed to freely decide whether a medical emergency is safe or unsafe.
+Alaafia does not claim to diagnose disease, replace clinicians, guarantee hospital capacity, or provide a clinical diagnosis.
 
 ---
 
-# 🔄 Core Product Flow
+## How Alaafia Works
 
 ```text
 User
-  │
-  ▼
-Voice Input
-  │
-  ▼
-Speech-to-Text
-  │
-  ▼
-Symptom Understanding
-  │
-  ▼
-Follow-up Questions
-  │
-  ▼
-Deterministic Triage Engine
-  │
-  ├── LOW
-  ├── MEDIUM
-  ├── HIGH
-  └── CRITICAL
-          │
-          ▼
-     Safety Guidance
-          │
-          ▼
-   Healthcare Matching
-          │
-          ▼
-   Hospital Recommendations
-          │
-          ▼
-   User Selects Facility
-          │
-          ▼
-      Navigation
-          │
-          ▼
- Emergency Summary / Handoff
+  ↓
+Voice or text input
+  ↓
+Google Cloud Speech-to-Text for audio
+  ↓
+Structured symptom extraction and normalization
+  ↓
+Deterministic triage engine
+  ↓
+LOW / MEDIUM / HIGH / CRITICAL
+  ↓
+Safety guidance
+  ↓
+Capability-aware facility matching
+  ↓
+Facility recommendation and explanation
+  ↓
+Hospital selection and navigation coordinates
+  ↓
+Emergency Mode for CRITICAL cases
+  ↓
+Emergency summary and handoff record
+```
+
+The frontend communicates with Alaafia's backend. The frontend does not connect directly to the database or external provider credentials.
+
+---
+
+## Triage Safety Architecture
+
+The triage engine checks higher-risk conditions before lower-acuity patterns:
+
+1. **Critical overrides**: red flags always escalate to CRITICAL.
+2. **High acuity**: significant warning signs require urgent assessment.
+3. **Medium urgency**: symptoms need medical attention soon.
+4. **Low urgency**: no recognized concerning pattern is present.
+
+Examples of critical signals include:
+
+- Unresponsiveness
+- Severe respiratory distress
+- Blue lips or face
+- Major bleeding
+- Active seizure
+- Severe altered consciousness
+- Stroke-like symptoms
+- Severe allergic reaction
+- Poisoning or overdose
+- Severe trauma
+- Chest pain combined with breathing difficulty
+
+The engine returns explainable reasons and approved guidance. Internal scores support explainability; they are not medical certainty scores.
+
+Clinical deployment requires formal clinical validation, medical governance, and regulatory review.
+
+---
+
+## Working MVP Features
+
+### Authentication
+
+- Guest sessions with location, language, and expiration.
+- User registration with name, email, password, and optional phone.
+- Password hashing with bcrypt.
+- Six-digit email verification codes.
+- Verification-code expiry and attempt limits.
+- Resend verification codes.
+- Welcome email after successful first-time verification.
+- Login blocked until email verification is complete.
+- JWT login tokens.
+- Google ID-token login endpoint.
+
+### Consultation
+
+- Text consultation creation.
+- Multi-turn consultation messages.
+- Structured symptom persistence.
+- Voice upload using `multipart/form-data`.
+- In-memory audio processing.
+- Transcript confirmation.
+- Consultation status tracking.
+- Emergency summary generation.
+
+### AI and voice
+
+- Google Cloud Speech-to-Text adapter.
+- Google Cloud Natural Language analysis with keyword fallback.
+- Google Cloud Text-to-Speech method.
+- YarnGPT Text-to-Speech adapter for Nigerian-language voice output.
+- Symptom normalization across string and object-shaped provider responses.
+- Deterministic triage independent of generated language responses.
+
+### Facility and emergency coordination
+
+- Simulated Lagos facility dataset for MVP testing.
+- Haversine distance calculation.
+- Capability-aware facility matching.
+- Severity-based facility filtering.
+- Recommendation scoring using capability match and distance.
+- Explainable recommendation reasons.
+- Facility verification and data-source fields.
+- Explicit `UNKNOWN` readiness state when live readiness is unavailable.
+- Hospital details and navigation coordinates.
+- Hospital selection.
+- CRITICAL-only Emergency Mode activation.
+- Emergency summary and simulated handoff persistence.
+
+---
+
+## API Base URL
+
+Development:
+
+```text
+http://localhost:5000/api/v1
+```
+
+### Authentication
+
+```http
+POST /auth/guest
+POST /auth/register
+POST /auth/verify-email
+POST /auth/resend-verification
+POST /auth/login
+POST /auth/google
+```
+
+### Consultation
+
+```http
+POST /consultations
+POST /consultations/:consultationId/message
+POST /consultations/:consultationId/voice
+POST /consultations/:consultationId/confirm-transcript
+GET  /consultations/:consultationId
+```
+
+### Triage and guidance
+
+```http
+POST /triage
+GET  /triage/:consultationId
+GET  /guidance/:consultationId
+```
+
+### Hospitals and facilities
+
+```http
+GET  /hospitals/nearby
+GET  /hospitals/recommended
+GET  /hospitals/:hospitalId
+POST /hospitals/:hospitalId/select
+GET  /facilities
+POST /facilities/search
+```
+
+### Emergency workflow
+
+```http
+POST /emergency/activate
+POST /emergency/:emergencyId/summary
+```
+
+### Health check
+
+```http
+GET /health
+```
+
+Most contract endpoints use:
+
+```json
+{
+  "success": true,
+  "data": {},
+  "message": "Request successful"
+}
+```
+
+Errors use a structured error object containing a code, message, and details.
+
+---
+
+## Tech Stack
+
+### Frontend
+
+- Next.js
+- React
+- TypeScript
+- Leaflet
+- React Leaflet
+- Axios
+- Lucide React
+- Tailwind CSS
+
+The frontend owns the user interface, microphone interaction, audio playback, map display, hospital cards, navigation actions, loading states, and accessibility.
+
+### Backend
+
+- Node.js
+- Express
+- PostgreSQL
+- Sequelize
+- JWT
+- bcryptjs
+- Multer
+- Nodemailer
+- Helmet
+- CORS
+- Morgan
+- Express Rate Limit
+
+The backend owns authentication, database access, speech integrations, symptom processing, deterministic triage, facility matching, emergency workflows, and provider boundaries.
+
+### External services
+
+- Google Cloud Speech-to-Text
+- Google Cloud Natural Language
+- Google Cloud Text-to-Speech
+- YarnGPT Text-to-Speech
+- Google OAuth ID-token verification
+
+---
+
+## Local Setup
+
+### Requirements
+
+- Node.js
+- PostgreSQL
+- npm
+- Google Cloud credentials if using Google speech services
+- YarnGPT API key if using YarnGPT voice output
+
+### Install dependencies
+
+```powershell
+cd backend
+npm install
+```
+
+### Configure environment variables
+
+Create `backend/.env` from `backend/.env.example`.
+
+```env
+NODE_ENV=development
+PORT=5000
+FRONTEND_URL=http://localhost:3000
+
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/Alaafia_db
+JWT_SECRET=replace-with-a-long-random-secret
+
+GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\service-account.json
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+VERTEX_AI_LOCATION=us-central1
+GOOGLE_CLIENT_ID=your-web-client-id
+
+YARNGPT_API_KEY=your-yarngpt-key
+YARNGPT_BASE_URL=https://yarngpt.ai
+
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+SMTP_FROM=Alaafia <no-reply@example.com>
+```
+
+Never commit `.env`. Use secret variables in deployment environments.
+
+### Seed simulated facilities
+
+```powershell
+npm run seed
+```
+
+This resets and seeds the local database with simulated Lagos facilities for MVP testing.
+
+### Start the backend
+
+Development mode:
+
+```powershell
+npm run dev
+```
+
+Normal mode:
+
+```powershell
+npm start
+```
+
+### Start the frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## Testing with Postman
+
+Import:
+
+[backend/postman/Alaafia-MVP.postman_collection.json](backend/postman/Alaafia-MVP.postman_collection.json)
+
+The collection contains the authentication and golden-path requests. Run them in this order:
+
+```text
+Health
+→ Guest session
+→ Register user
+→ Verify email
+→ Login
+→ Create consultation
+→ Run triage
+→ Recommended hospitals
+→ Select hospital
+→ Activate Emergency Mode
+→ Generate emergency summary
+```
+
+For voice testing, use the `Upload Voice Recording` request with a `.webm` file and set the form-data language to `en-NG` or another supported language code.
+
+---
+
+## Real, Simulated, and Pending Features
+
+### Real and implemented in the MVP
+
+- Backend API
+- PostgreSQL persistence
+- Guest sessions
+- Email verification
+- JWT authentication
+- Text consultations
+- Deterministic triage
+- Simulated facility retrieval and ranking
+- Hospital selection data
+- Emergency summary persistence
+- YarnGPT TTS adapter
+
+### Simulated for the MVP
+
+- Facility dataset
+- Facility readiness
+- Provider handoff receipt
+- Live hospital operational status
+
+### Pending external access or additional validation
+
+- NHFR/HFR synchronization. NHFR has not yet provided API access, so simulated facilities are used and labelled accordingly.
+- Verified partner-facility data.
+- Wema integration, pending official API/product access.
+- Real browser audio testing through Google Speech-to-Text.
+- Full provider readiness workflow.
+- Production clinical validation.
+
+We do not claim that simulated registry data represents real-time hospital capacity.
+
+---
+
+## Safety and Privacy
+
+- Alaafia is not a diagnostic tool.
+- Deterministic safety rules control severity classification.
+- Critical red flags override lower-acuity patterns.
+- Raw audio is processed in memory and is not stored as a database file.
+- Verification codes are hashed before storage.
+- Passwords are hashed before storage.
+- External API keys remain backend-only.
+- Facility source and verification status are returned explicitly.
+- Unknown readiness is not represented as available capacity.
+- Production deployment requires clinical governance and validation.
+
+---
+
+## Project Status
+
+```text
+Backend MVP golden path       Working
+PostgreSQL persistence        Working
+Authentication               Working
+Email verification           Working
+YarnGPT TTS adapter           Working
+Text triage flow              Verified
+Facility matching             Working with simulated data
+Emergency summary             Working as simulated handoff
+NHFR integration              Pending access
+Wema integration              Pending official access
+Provider readiness            Partial data model only
+Production clinical use      Not approved
+```
+
+---
+
+## Team
+
+Built by the Alaafia team for Hackaholics 7.0 in Lagos, Nigeria.
+
+> **Alaafia helps people move from uncertainty to appropriate care.**

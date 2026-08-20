@@ -34,3 +34,8 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+.env
+*.json
+!package.json
+!package-lock.json
