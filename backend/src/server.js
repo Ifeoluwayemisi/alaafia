@@ -13,15 +13,15 @@ const startServer = async () => {
     // Schema changes should be handled through migrations once the MVP schema stabilizes.
     await sequelize.sync();
     await ensureSchema(sequelize);
-    console.log("✅ Database synchronized");
+    console.log("Database synchronized");
 
     // Start server
     app.listen(PORT, () => {
       console.log(`🩺 Alafia API running on port ${PORT}`);
-      console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
     });
   } catch (error) {
-    console.error("❌ Failed to start server:", error);
+    console.error("Failed to start server:", error);
     process.exit(1);
   }
 };
