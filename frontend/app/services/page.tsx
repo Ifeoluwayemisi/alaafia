@@ -3,8 +3,8 @@
 import React from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import Link from "next/link";
-import { Mic, ShieldCheck, Stethoscope, MapPin, Activity, Clock, ArrowRight } from "lucide-react";
+import CTASection from "@/components/CTASection";
+import { ShieldCheck, Stethoscope, MapPin, Activity, Clock, Mic } from "lucide-react";
 
 export default function ServicesPage() {
   const servicesList = [
@@ -94,26 +94,12 @@ export default function ServicesPage() {
         </section>
 
         {/* Call to Action */}
-        <section className="px-4 sm:px-8 py-16 bg-teal-900 text-white">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Ready to check your symptoms?
-            </h2>
-            <p className="text-teal-200 text-sm sm:text-base max-w-xl mx-auto">
-              Start a confidential consultation right now using your voice or keyboard.
-            </p>
-            <div>
-              <Link
-                href="/consultation"
-                className="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold px-8 py-3.5 rounded-full shadow-lg transition-all text-base"
-              >
-                <Mic className="w-5 h-5" />
-                <span>Start Consultation</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </Link>
-            </div>
-          </div>
-        </section>
+        <CTASection
+          headline="Ready to check your symptoms?"
+          subheadline="Start a confidential consultation right now using your voice or keyboard."
+          ctaLabel="Start Consultation"
+          ctaHref="/consultation"
+        />
       </main>
 
       <Footer />

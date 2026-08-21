@@ -22,6 +22,7 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EmergencyModal from "@/components/EmergencyModal";
+import CTASection from "@/components/CTASection";
 
 export default function Home() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
@@ -395,42 +396,13 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 7. BOTTOM CTA CARD: "Start speaking now" routes to /signin */}
-        <section id="consultation" className="px-4 sm:px-8 py-20 bg-white">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-teal-500/10 via-teal-500/5 to-emerald-500/10 border border-teal-200/80 rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-xl relative overflow-hidden">
-              <div className="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center mx-auto shadow-md shadow-teal-600/30">
-                <Mic className="w-7 h-7" />
-              </div>
-
-              <div className="space-y-3 max-w-xl mx-auto">
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-                  Not sure what to do next? <br />
-                  Start with a conversation.
-                </h2>
-                <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                  Experience the calm precision of AI-guided healthcare
-                  navigation. Your health is worth clarity.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <Link
-                  href="/signin"
-                  className="inline-flex items-center gap-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold px-8 py-4 rounded-full shadow-lg shadow-teal-600/30 hover:shadow-teal-600/40 transition-all text-base cursor-pointer"
-                >
-                  <span>Start speaking now</span>
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </div>
-
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-medium pt-2">
-                <Lock className="w-3.5 h-3.5 text-teal-600" />
-                <span>Your conversation is secure and private.</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* 7. BOTTOM CTA CARD */}
+        <CTASection
+          headline="Not sure what to do next? Start with a conversation."
+          subheadline="Experience the calm precision of AI-guided healthcare navigation. Your health is worth clarity."
+          ctaLabel="Start speaking now"
+          ctaHref="/signin"
+        />
       </main>
 
       {/* 8. FOOTER */}

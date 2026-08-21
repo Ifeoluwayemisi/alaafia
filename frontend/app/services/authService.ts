@@ -1,8 +1,8 @@
 /**
- * Authentication API & Local Fallback Service
+ * Authentication Service (Supabase Auth)
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1/auth";
+import { createClient } from "@/lib/supabase/client";
 
 export interface UserProfile {
   id: string;
@@ -18,217 +18,140 @@ export const authService = {
    * Register a new user
    */
   async signup(data: { firstName: string; lastName: string; email: string; password: string }) {
-    try {
-      const response = await fetch(`${API_BASE}/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+    const supabase = createClient();
 
-      const resData = await response.json();
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+        },
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(resData.message || "Failed to create account.");
-      }
+    if (error) {
+      throw new Error(error.message);
+    }
 
-      // Save pending email in localStorage
-      localStorage.setItem("alaafia_pending_email", data.email);
-      if (resData.verificationCode) {
-        localStorage.setItem("alaafia_latest_otp", resData.verificationCode);
-      }
+    // If email confirmation is enabled, Supabase returns user but no session
+    if (authData.user && !authData.session) {
+      return {
+        success: true,
+        message: "Account created! Please check your email to verify your account.",
+        email: data.email,
+      };
+    }
 
-      return resData;
-    } catch (err: any) {
-      console.warn("Backend unavailable, using simulated local storage for sign up:", err);
-      
-      // Fallback local storage execution
-      const pendingEmail = data.email.toLowerCase().trim();
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      localStorage.setItem("alaafia_pending_email", pendingEmail);
-      localStorage.setItem("alaafia_latest_otp", code);
-      localStorage.setItem(`alaafia_user_${pendingEmail}`, JSON.stringify({
-        id: `user-${Date.now()}`,
+    // If email confirmation is disabled, user is auto signed in
+    if (authData.session && authData.user) {
+      localStorage.setItem("alaafia_user", JSON.stringify({
+        id: authData.user.id,
         firstName: data.firstName,
         lastName: data.lastName,
-        email: pendingEmail,
-        password: data.password,
-        isVerified: false,
+        email: data.email,
+        isVerified: true,
         isNewUser: true,
       }));
-
-      return {
-        success: true,
-        message: "Account created! Verification code sent to your email.",
-        email: pendingEmail,
-        maskedEmail: pendingEmail.replace(/(.{1})(.*)(?=@)/, (gp1, gp2, gp3) => gp2 + "*".repeat(gp3.length)),
-        verificationCode: code,
-      };
+      localStorage.setItem("alaafia_is_new_user", "true");
     }
+
+    return {
+      success: true,
+      message: "Account created successfully!",
+      email: data.email,
+    };
   },
 
   /**
-   * Verify account using 6-digit OTP
+   * Check if the user's email has been confirmed via Supabase.
+   * Called on the /verify page to detect if the user already clicked the confirmation link.
    */
-  async verify(email: string, code: string) {
-    try {
-      const response = await fetch(`${API_BASE}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
+  async verify(email: string) {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
 
-      const resData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(resData.message || "Verification failed.");
-      }
-
-      // Store authenticated user state
-      if (resData.user) {
-        localStorage.setItem("alaafia_user", JSON.stringify(resData.user));
-        localStorage.setItem("alaafia_is_new_user", "true");
-        localStorage.removeItem("alaafia_pending_email");
-      }
-
-      return resData;
-    } catch (err: any) {
-      console.warn("Backend API call failed, verifying locally:", err);
-
-      const storedOtp = localStorage.getItem("alaafia_latest_otp");
-      const isValid = code === storedOtp || code === "123456";
-
-      if (!isValid) {
-        throw new Error("Invalid verification code. Please try again or use 123456.");
-      }
-
-      const pendingEmail = email.toLowerCase().trim();
-      const storedUserDataStr = localStorage.getItem(`alaafia_user_${pendingEmail}`);
-      let userObj: UserProfile = {
-        id: `user-${Date.now()}`,
-        firstName: "New",
-        lastName: "User",
-        email: pendingEmail,
+    if (session) {
+      localStorage.setItem("alaafia_user", JSON.stringify({
+        id: session.user.id,
+        firstName: session.user.user_metadata?.firstName || "",
+        lastName: session.user.user_metadata?.lastName || "",
+        email: session.user.email || email,
         isVerified: true,
         isNewUser: true,
-      };
-
-      if (storedUserDataStr) {
-        const parsed = JSON.parse(storedUserDataStr);
-        userObj = { ...parsed, isVerified: true, isNewUser: true };
-      }
-
-      localStorage.setItem("alaafia_user", JSON.stringify(userObj));
+      }));
       localStorage.setItem("alaafia_is_new_user", "true");
-      localStorage.removeItem("alaafia_pending_email");
-
-      return {
-        success: true,
-        message: "Account verified successfully!",
-        user: userObj,
-      };
+      return { success: true, message: "Email verified!", confirmed: true };
     }
+
+    return { success: true, message: "Awaiting email confirmation.", confirmed: false };
   },
 
   /**
-   * Sign in existing user
+   * Sign in existing user via Supabase Auth
    */
   async signin(email: string, password: string) {
-    try {
-      const response = await fetch(`${API_BASE}/signin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    const supabase = createClient();
 
-      const resData = await response.json();
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (!response.ok) {
-        if (resData.requiresVerification) {
-          localStorage.setItem("alaafia_pending_email", email);
-          if (resData.verificationCode) {
-            localStorage.setItem("alaafia_latest_otp", resData.verificationCode);
-          }
-          throw { requiresVerification: true, message: resData.message, email };
-        }
-        throw new Error(resData.message || "Failed to sign in.");
+    if (error) {
+      // Email not confirmed — direct user to verify page
+      if (error.message === "Email not confirmed") {
+        throw {
+          requiresVerification: true,
+          message: "Please verify your email before signing in.",
+          email,
+        };
       }
-
-      // Existing user signed in -> isNewUser is false!
-      const userObj = {
-        ...resData.user,
-        isNewUser: false,
-      };
-
-      localStorage.setItem("alaafia_user", JSON.stringify(userObj));
-      localStorage.setItem("alaafia_is_new_user", "false");
-
-      return resData;
-    } catch (err: any) {
-      if (err.requiresVerification) throw err;
-
-      console.warn("Backend API call failed, signing in locally:", err);
-
-      const cleanEmail = email.toLowerCase().trim();
-      const storedUserDataStr = localStorage.getItem(`alaafia_user_${cleanEmail}`);
-      let userObj: UserProfile = {
-        id: `user-${Date.now()}`,
-        firstName: cleanEmail.split("@")[0].charAt(0).toUpperCase() + cleanEmail.split("@")[0].slice(1),
-        lastName: "User",
-        email: cleanEmail,
-        isVerified: true,
-        isNewUser: false,
-      };
-
-      if (storedUserDataStr) {
-        try {
-          const parsed = JSON.parse(storedUserDataStr);
-          if (parsed.firstName) userObj.firstName = parsed.firstName;
-          if (parsed.lastName) userObj.lastName = parsed.lastName;
-        } catch (e) {}
+      // Invalid credentials
+      if (error.message === "Invalid login credentials") {
+        throw new Error("Invalid email or password. Please try again.");
       }
-
-      localStorage.setItem("alaafia_user", JSON.stringify(userObj));
-      localStorage.setItem("alaafia_is_new_user", "false");
-
-      return {
-        success: true,
-        message: "Welcome back!",
-        user: userObj,
-      };
+      throw new Error(error.message);
     }
+
+    // Successful login — Supabase session is now stored automatically
+    const userObj: UserProfile = {
+      id: authData.user.id,
+      firstName: authData.user.user_metadata?.firstName || "",
+      lastName: authData.user.user_metadata?.lastName || "",
+      email: authData.user.email || email,
+      isVerified: true,
+      isNewUser: false,
+    };
+
+    localStorage.setItem("alaafia_user", JSON.stringify(userObj));
+    localStorage.setItem("alaafia_is_new_user", "false");
+
+    return {
+      success: true,
+      message: "Welcome back!",
+      user: userObj,
+    };
   },
 
   /**
-   * Resend verification code
+   * Resend verification email via Supabase Auth
    */
   async resendCode(email: string) {
-    try {
-      const response = await fetch(`${API_BASE}/resend-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email,
+    });
 
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || "Failed to resend code.");
-      }
-
-      if (resData.verificationCode) {
-        localStorage.setItem("alaafia_latest_otp", resData.verificationCode);
-      }
-
-      return resData;
-    } catch (err: any) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      localStorage.setItem("alaafia_latest_otp", code);
-
-      return {
-        success: true,
-        message: "A new verification code has been sent to your email.",
-        verificationCode: code,
-      };
+    if (error) {
+      throw new Error(error.message);
     }
+
+    return {
+      success: true,
+      message: "Verification email resent. Please check your inbox.",
+    };
   },
 };

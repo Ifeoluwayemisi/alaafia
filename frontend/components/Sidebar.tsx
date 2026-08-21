@@ -9,6 +9,7 @@ import {
   History,
   Calendar,
   Compass,
+  Shield,
   Plus,
   User,
   Settings,
@@ -18,7 +19,7 @@ import {
 import LogoutModal from "@/components/LogoutModal";
 
 interface SidebarProps {
-  activeTab?: "home" | "consultation" | "history" | "followups" | "guidance" | "profile" | "settings";
+  activeTab?: "home" | "consultation" | "history" | "care-support" | "followups" | "guidance" | "profile" | "settings";
 }
 
 export default function Sidebar({ activeTab }: SidebarProps) {
@@ -49,6 +50,8 @@ export default function Sidebar({ activeTab }: SidebarProps) {
       ? "consultation"
       : pathname === "/history"
       ? "history"
+      : pathname === "/care-support"
+      ? "care-support"
       : pathname === "/settings"
       ? "settings"
       : pathname === "/about"
@@ -59,6 +62,7 @@ export default function Sidebar({ activeTab }: SidebarProps) {
     { id: "home", label: "Home", href: "/dashboard", icon: Home },
     { id: "consultation", label: "Consultation", href: "/consultation", icon: Stethoscope },
     { id: "history", label: "History", href: "/history", icon: History },
+    { id: "care-support", label: "Care Support", href: "/care-support", icon: Shield },
     { id: "followups", label: "Follow-ups", href: "/history", icon: Calendar },
     { id: "guidance", label: "Guidance", href: "/about", icon: Compass },
   ];

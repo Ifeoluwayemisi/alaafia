@@ -22,6 +22,7 @@ import {
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import CTASection from "@/components/CTASection";
 
 export default function HowItWorksPage() {
   const [activeStep, setActiveStep] = useState(0);
@@ -309,25 +310,12 @@ export default function HowItWorksPage() {
         </section>
 
         {/* 5. CALL TO ACTION */}
-        <section className="px-4 sm:px-8 py-16 bg-[#0f766e] text-white relative overflow-hidden">
-          <div className="max-w-4xl mx-auto text-center space-y-6 relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Ready to start your health conversation?
-            </h2>
-            <p className="text-teal-100 text-base max-w-xl mx-auto">
-              Get immediate, clear, non-judgmental guidance on your symptoms right now.
-            </p>
-            <div className="pt-2">
-              <Link
-                href="/consultation"
-                className="inline-flex items-center gap-2 bg-white text-[#0f766e] hover:bg-teal-50 font-bold px-8 py-3.5 rounded-full shadow-lg transition-all text-base"
-              >
-                <Mic className="w-5 h-5 text-[#0f766e]" />
-                Start speaking now
-              </Link>
-            </div>
-          </div>
-        </section>
+        <CTASection
+          headline="Ready to start your health conversation?"
+          subheadline="Get immediate, clear, non-judgmental guidance on your symptoms right now."
+          ctaLabel="Start speaking now"
+          ctaHref="/consultation"
+        />
       </main>
 
       {/* 6. FOOTER */}

@@ -60,7 +60,6 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [devOtpHint, setDevOtpHint] = useState("");
 
   // Sync mode with query params if provided
   useEffect(() => {
@@ -88,6 +87,23 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
     }
     return () => clearInterval(interval);
   }, [mode, resendTimer]);
+
+  // Check if user already confirmed their email (clicked the Supabase link)
+  useEffect(() => {
+    if (mode === "verify" && email) {
+      const checkSession = async () => {
+        try {
+          const res = await authService.verify(email);
+          if (res.confirmed) {
+            router.push("/dashboard?newUser=true");
+          }
+        } catch {
+          // Silently fail — user stays on verify page to check email
+        }
+      };
+      checkSession();
+    }
+  }, [mode, email, router]);
 
   // Mask email for display in verify step: e.g. "rukayat@gmail.com" -> "r******@gmail.com"
   const getMaskedEmail = (rawEmail: string) => {
@@ -135,8 +151,7 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
       }, 1000);
     } catch (err: any) {
       if (err.requiresVerification) {
-        setErrorMsg(err.message || "Please verify your account code.");
-        if (err.verificationCode) setDevOtpHint(err.verificationCode);
+        setErrorMsg(err.message || "Please verify your email before signing in.");
         switchMode("verify");
       } else {
         setErrorMsg(err.message || "Failed to sign in. Please check your credentials.");
@@ -165,15 +180,10 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
     setIsLoading(true);
     try {
       const res = await authService.signup({ firstName, lastName, email, password });
-      setSuccessMsg("Account created! Verification code sent to your email.");
-      if (res.verificationCode) {
-        setDevOtpHint(res.verificationCode);
-      }
-
-      // Automatically transition to verification view
+      setSuccessMsg(res.message || "Account created! Please check your email to verify your account.");
       setTimeout(() => {
-        switchMode("verify");
-      }, 1200);
+        router.push(`/verify?email=${encodeURIComponent(email)}`);
+      }, 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to create account.");
     } finally {
@@ -215,50 +225,43 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
     }
   };
 
-  // 4. VERIFY CODE SUBMISSION
+  // 4. CHECK VERIFICATION STATUS (checks if Supabase session exists)
   const handleVerifyCode = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    const fullCode = otpDigits.join("");
-    if (fullCode.length < 6) {
-      setErrorMsg("Please enter all 6 digits of the verification code.");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const res = await authService.verify(email || "user@example.com", fullCode);
-      setSuccessMsg("Account verified! Moving to your dashboard as a new user...");
-
-      // Verified account -> navigate to dashboard as NEW user!
-      setTimeout(() => {
-        router.push("/dashboard?newUser=true");
-      }, 1200);
+      const res = await authService.verify(email);
+      if (res.confirmed) {
+        setSuccessMsg("Account verified! Redirecting to your dashboard...");
+        setTimeout(() => {
+          router.push("/dashboard?newUser=true");
+        }, 1200);
+      } else {
+        setSuccessMsg("Please check your email and click the verification link.");
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || "Invalid verification code. Please check your email or enter 123456.");
+      setErrorMsg(err.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 5. RESEND CODE HANDLER
+  // 5. RESEND VERIFICATION EMAIL
   const handleResendCode = async () => {
     if (!canResend && resendTimer > 0) return;
     setErrorMsg("");
     setSuccessMsg("");
     setIsLoading(true);
     try {
-      const res = await authService.resendCode(email || "user@example.com");
-      if (res.verificationCode) {
-        setDevOtpHint(res.verificationCode);
-      }
-      setSuccessMsg("A new 6-digit code has been sent to your email!");
+      await authService.resendCode(email || "user@example.com");
+      setSuccessMsg("Verification email resent. Please check your inbox.");
       setResendTimer(30);
       setCanResend(false);
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to resend code.");
+      setErrorMsg(err.message || "Failed to resend verification email.");
     } finally {
       setIsLoading(false);
     }
@@ -404,25 +407,6 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
             {/* ========================================================================= */}
             <div className="lg:col-span-6 p-8 sm:p-10 flex flex-col justify-between bg-white relative">
               
-              {/* Dev Helper Toast if Code Generated */}
-              {devOtpHint && mode === "verify" && (
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>Demo Verification Code: <strong className="font-mono text-sm tracking-wider">{devOtpHint}</strong> (or use 123456)</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const digits = devOtpHint.split("");
-                      setOtpDigits(digits);
-                    }}
-                    className="text-[11px] bg-amber-200 hover:bg-amber-300 font-bold px-2 py-1 rounded text-amber-900 transition-colors"
-                  >
-                    Auto-fill
-                  </button>
-                </div>
-              )}
-
               {/* Notification Banner */}
               {errorMsg && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 animate-shake">
@@ -729,7 +713,7 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
                 </div>
               )}
 
-              {/* FORM VIEW 3: VERIFY ACCOUNT PAGE (Figma Screenshot 3) */}
+              {/* FORM VIEW 3: VERIFY ACCOUNT PAGE (Check Email) */}
               {mode === "verify" && (
                 <div className="space-y-6 animate-fadeIn">
                   {/* Top Back Link */}
@@ -743,77 +727,38 @@ export default function AuthFlow({ initialMode = "signin" }: AuthFlowProps) {
 
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                      Verify your account
+                      Check your email
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                      We've sent a verification code to{" "}
+                      We've sent a verification link to{" "}
                       <strong className="text-slate-800 font-semibold">
                         {getMaskedEmail(email)}
                       </strong>.{" "}
-                      <button
-                        onClick={() => switchMode("signup")}
-                        className="text-teal-600 hover:underline font-medium ml-1"
-                      >
-                        Change email
-                      </button>
+                      Click the link in the email to verify your account.
                     </p>
                   </div>
 
-                  <form onSubmit={handleVerifyCode} className="space-y-6">
-                    {/* 6-Digit OTP Box Grid */}
-                    <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                      {otpDigits.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          ref={(el) => {
-                            otpInputRefs.current[idx] = el;
-                          }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpChange(idx, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                          onPaste={handleOtpPaste}
-                          className={`w-11 h-13 sm:w-13 sm:h-14 text-center text-xl font-bold rounded-xl border transition-all ${
-                            digit
-                              ? "bg-teal-50/50 border-[#006666] text-[#006666] shadow-xs"
-                              : "bg-slate-50 border-slate-200 text-slate-900"
-                          } focus:outline-none focus:ring-2 focus:ring-[#006666] focus:bg-white`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Verify Button */}
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3.5 px-4 bg-[#006666] hover:bg-[#004d4d] active:bg-[#003333] text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-900/10 hover:shadow-teal-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {isLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <span>Verify code</span>
-                      )}
-                    </button>
-                  </form>
-
-                  {/* Resend Code Timer */}
-                  <div className="text-center text-xs text-slate-500">
-                    Didn't receive the code?{" "}
-                    {canResend || resendTimer === 0 ? (
-                      <button
-                        onClick={handleResendCode}
-                        className="text-teal-600 hover:text-teal-800 font-bold hover:underline cursor-pointer"
-                      >
-                        Resend code now
-                      </button>
+                  {/* Resend Button */}
+                  <button
+                    onClick={handleResendCode}
+                    disabled={isLoading || (!canResend && resendTimer > 0)}
+                    className="w-full py-3.5 px-4 bg-[#006666] hover:bg-[#004d4d] active:bg-[#003333] text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-900/10 hover:shadow-teal-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
-                      <span className="text-slate-400 font-medium">
-                        Resend code in 00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}
-                      </span>
+                      <span>Resend verification email</span>
                     )}
-                  </div>
+                  </button>
+
+                  {/* Resend Cooldown Timer */}
+                  {!canResend && resendTimer > 0 && (
+                    <div className="text-center text-xs text-slate-500">
+                      <span className="text-slate-400 font-medium">
+                        You can resend in 00:{resendTimer < 10 ? `0${resendTimer}` : resendTimer}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
