@@ -86,7 +86,7 @@ User
   ↓
 Voice or text input
   ↓
-OpenAI Whisper for audio transcription
+Self-hosted Whisper for audio transcription
   ↓
 Structured symptom extraction and normalization
   ↓
@@ -168,7 +168,7 @@ Clinical deployment requires formal clinical validation, medical governance, and
 
 ### AI and voice
 
-- OpenAI Whisper transcription adapter.
+- Self-hosted Whisper transcription service.
 - OpenAI structured symptom extraction with deterministic keyword fallback.
 - YarnGPT Text-to-Speech adapter for Nigerian-language voice output.
 - Symptom normalization across string and object-shaped provider responses.
@@ -300,10 +300,10 @@ The backend owns authentication, database access, speech integrations, symptom p
 
 ### External services
 
-- OpenAI Whisper
 - OpenAI structured extraction
 - YarnGPT Text-to-Speech
 - Google OAuth ID-token verification
+- Self-hosted faster-whisper speech-to-text (internal microservice, no external STT API)
 
 ---
 
@@ -314,7 +314,8 @@ The backend owns authentication, database access, speech integrations, symptom p
 - Node.js
 - PostgreSQL
 - npm
-- OpenAI API key for live transcription and structured extraction
+- Python 3.10+ for the self-hosted Whisper service
+- OpenAI API key for structured symptom extraction
 - YarnGPT API key if using YarnGPT voice output
 
 ### Install dependencies
@@ -437,7 +438,7 @@ For voice testing, use the `Upload Voice Recording` request with a `.webm` file 
 - NHFR/HFR synchronization. NHFR has not yet provided API access, so simulated facilities are used and labelled accordingly.
 - Verified partner-facility data.
 - Wema integration, pending official API/product access.
-- Real browser audio testing through OpenAI Whisper.
+- Real browser audio testing through the self-hosted Whisper service.
 - Full provider readiness workflow.
 - Production clinical validation.
 

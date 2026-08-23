@@ -1,4 +1,5 @@
 const OpenAIIntegration = require("../integrations/openai");
+const speechService = require("../integrations/speech");
 const { Consultation, ConsultationMessage, Symptom } = require("../models");
 const {
   normalizeSymptoms,
@@ -6,6 +7,24 @@ const {
 } = require("../services/symptomNormalizer");
 
 const ai = () => new OpenAIIntegration();
+
+const SPEECH_ERROR_RESPONSES = {
+  EMPTY_AUDIO: { status: 400, code: "VALIDATION_ERROR" },
+  INVALID_AUDIO: { status: 400, code: "INVALID_AUDIO" },
+  UNSUPPORTED_AUDIO_FORMAT: { status: 400, code: "UNSUPPORTED_AUDIO_FORMAT" },
+  AUDIO_TOO_LARGE: { status: 413, code: "AUDIO_TOO_LARGE" },
+  SPEECH_SERVICE_NOT_CONFIGURED: {
+    status: 503,
+    code: "TRANSCRIPTION_UNAVAILABLE",
+  },
+  SPEECH_PROVIDER_INVALID: { status: 503, code: "TRANSCRIPTION_UNAVAILABLE" },
+  SPEECH_SERVICE_UNAUTHORIZED: {
+    status: 503,
+    code: "TRANSCRIPTION_UNAVAILABLE",
+  },
+  TRANSCRIPTION_UNAVAILABLE: { status: 503, code: "TRANSCRIPTION_UNAVAILABLE" },
+  TRANSCRIPTION_TIMEOUT: { status: 504, code: "TRANSCRIPTION_TIMEOUT" },
+};
 
 const extract = async (text) => {
   const result = await ai().extractSymptoms(text);
@@ -154,22 +173,35 @@ class ContractConsultationController {
         },
       });
     const language = req.body.language || "en-NG";
-    const result = await ai().transcribeAudio(req.file.buffer, language);
-    if (!result.success)
-      return res.status(422).json({
+    const result = await speechService.transcribeAudio(
+      req.file.buffer,
+      language,
+      { contentType: req.file.mimetype },
+    );
+    if (!result.success) {
+      const mapped =
+        SPEECH_ERROR_RESPONSES[result.errorCode] || {
+          status: 422,
+          code: "TRANSCRIPTION_FAILED",
+        };
+      console.error(
+        `[speech] Voice transcription failed (code=${result.errorCode || "TRANSCRIPTION_FAILED"}, status=${mapped.status})`,
+      );
+      return res.status(mapped.status).json({
         success: false,
         error: {
-          code: "TRANSCRIPTION_FAILED",
-          message: result.error || "Unable to transcribe audio",
+          code: mapped.code,
+          message: result.message || "Unable to transcribe audio",
           details: [],
         },
       });
+    }
     return res.json({
       success: true,
       data: {
         transcript: result.transcript,
         language,
-        confidence: result.confidence,
+        confidence: null,
         requiresConfirmation: true,
       },
       message: "Audio transcribed; confirmation required",

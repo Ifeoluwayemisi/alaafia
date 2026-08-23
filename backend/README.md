@@ -7,7 +7,7 @@ The ALAFIA backend is a Node.js/Express API that implements the core healthcare 
 ```
 USER VOICE/TEXT INPUT
         ↓
-    [Speech-to-Text via OpenAI Whisper]
+    [Speech-to-Text via Self-Hosted Whisper]
         ↓
   [Symptom Extraction via NLU]
         ↓
@@ -27,7 +27,7 @@ USER VOICE/TEXT INPUT
 - **Runtime**: Node.js
 - **Framework**: Express.js
 - **Database**: PostgreSQL + Sequelize ORM
-- **AI Services**: OpenAI (Whisper transcription and structured extraction) + YarnGPT Text-to-Speech
+- **AI Services**: OpenAI (structured extraction) + self-hosted Whisper speech-to-text + YarnGPT Text-to-Speech
 - **Authentication**: JWT (ready to implement)
 - **Validation**: Express validation middleware
 
@@ -47,8 +47,11 @@ src/
 │   ├── rules.js                 # Red flags, patterns, thresholds
 │   └── index.js
 ├── integrations/
-│   ├── openai.js                # Whisper transcription and structured extraction
-│   └── yarngpt.js               # Nigerian-language text-to-speech
+│   ├── openai.js                # Structured symptom extraction
+│   ├── yarngpt.js               # Nigerian-language text-to-speech
+│   └── speech/                  # Speech-to-text abstraction
+│       ├── speech.service.js    # Provider-agnostic transcribeAudio()
+│       └── whisper.adapter.js   # Self-hosted Whisper HTTP adapter
 ├── services/
 │   └── facilityMatching.js      # Capability + distance ranking
 ├── controllers/
@@ -90,7 +93,11 @@ DB_PORT=5432
 # OpenAI
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4o-mini
-OPENAI_TRANSCRIPTION_MODEL=whisper-1
+
+# Self-hosted Whisper speech-to-text (see /whisper-service)
+WHISPER_SERVICE_URL=http://localhost:8001
+WHISPER_SERVICE_TOKEN=
+WHISPER_TIMEOUT_MS=30000
 
 # YarnGPT
 YARNGPT_API_KEY=your-yarngpt-api-key
@@ -365,7 +372,7 @@ For a CRITICAL case (chest pain + breathing):
 - **AI assists, rules decide**: The triage engine prioritizes deterministic safety rules over AI scoring
 - **No medical claims**: The system explicitly disclaims any medical diagnostic ability
 - **Red flags override**: Critical red flags automatically escalate to CRITICAL regardless of scoring
-- **Privacy**: Raw audio is not persisted; transcripts are encrypted
+- **Privacy**: Raw audio is processed in memory and never persisted; only confirmed transcripts are stored
 
 ### MVP Limitations
 
@@ -417,7 +424,9 @@ curl -X POST http://localhost:5000/api/v1/facilities/search \
 | `DB_PORT`                    | PostgreSQL port             | `5432`                  |
 | `OPENAI_API_KEY`             | OpenAI API key              | (required for live AI)  |
 | `OPENAI_MODEL`               | Structured extraction model | `gpt-4o-mini`           |
-| `OPENAI_TRANSCRIPTION_MODEL` | Audio transcription model   | `whisper-1`             |
+| `WHISPER_SERVICE_URL`        | Self-hosted Whisper URL     | `http://localhost:8001` |
+| `WHISPER_SERVICE_TOKEN`      | Whisper service auth token  | (empty disables auth)   |
+| `WHISPER_TIMEOUT_MS`         | Transcription timeout       | `30000`                 |
 | `YARNGPT_API_KEY`            | YarnGPT TTS API key         | (required for live TTS) |
 | `PORT`                       | Server port                 | `5000`                  |
 | `NODE_ENV`                   | Environment                 | `development`           |

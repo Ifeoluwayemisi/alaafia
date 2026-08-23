@@ -5,6 +5,7 @@
  */
 
 const OpenAIIntegration = require("../integrations/openai");
+const speechService = require("../integrations/speech");
 const { TriageEngine } = require("../triage");
 const FacilityMatchingService = require("../services/facilityMatching");
 const { Consultation, TriageResult } = require("../models");
@@ -77,9 +78,9 @@ class ConsultationController {
       let transcript;
 
       if (isAudio && audioBase64) {
-        // Transcribe audio
+        // Transcribe audio through the self-hosted speech-to-text service
         const audioBuffer = Buffer.from(audioBase64, "base64");
-        const transcriptionResult = await openAI.transcribeAudio(
+        const transcriptionResult = await speechService.transcribeAudio(
           audioBuffer,
           language,
         );
@@ -88,12 +89,11 @@ class ConsultationController {
           return res.status(400).json({
             success: false,
             error: "Failed to transcribe audio",
-            details: transcriptionResult.error,
+            details: transcriptionResult.message,
           });
         }
 
         transcript = transcriptionResult.transcript;
-        console.log(`[Transcription] ${transcript}`);
       } else {
         transcript = input;
       }
@@ -112,8 +112,6 @@ class ConsultationController {
         entities: extractionResult.entities,
         sentiment: extractionResult.sentiment,
       };
-
-      console.log(`[Extracted Symptoms] ${JSON.stringify(structuredInput)}`);
 
       // ====================================================================
       // STEP 3: Run triage engine
