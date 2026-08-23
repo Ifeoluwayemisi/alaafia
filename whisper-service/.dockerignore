@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.log
+temp/
+*.wav
+*.webm
+*.mp3
+*.m4a
+.gitignore

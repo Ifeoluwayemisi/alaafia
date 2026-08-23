@@ -177,9 +177,49 @@ With both services running:
 
 ## Deployment notes
 
+### Render blueprint (one-click)
+
+A `render.yaml` at the repo root defines this service for Render's Python
+runtime (plan: `standard`, 2 GB — required for `small`; use `base` on
+512 MB plans). Deploy via **New → Blueprint** in the Render dashboard; it
+will prompt for `WHISPER_SERVICE_TOKEN`. Set the same token plus
+`WHISPER_SERVICE_URL` / `WHISPER_TIMEOUT_MS=60000` in the backend service.
+
+### Docker
+
+Build (model baked into the image at build time):
+
+```bash
+docker build -t alafia-whisper ./whisper-service
+# different model size:
+docker build --build-arg WHISPER_MODEL=base -t alafia-whisper ./whisper-service
+```
+
+Run (bound to localhost only by default):
+
+```bash
+docker run -d --name alafia-whisper \
+  -p 127.0.0.1:8001:8001 \
+  -e WHISPER_SERVICE_TOKEN=change-me \
+  --memory=2g \
+  alafia-whisper
+
+curl http://127.0.0.1:8001/health
+```
+
+On Railway/Render/Fly.io, point their Docker deploy at `whisper-service/`;
+mark the service private/internal and set `WHISPER_SERVICE_TOKEN` on both
+sides. The container health check uses `/health` with a 3-minute startup
+grace period for model loading.
+
 - Deploy as a separate service from the Node.js API (independent container/process).
 - CPU-only sizing for `small` int8: ~1 GB RAM free plus ~2 GB during first-run
   download; one worker (`--workers 1`) so all requests share one model instance.
+- CPU-only inference takes seconds per request; requests are processed one at
+  a time (single model instance), so concurrent uploads queue and multiply
+  latency. Keep `WHISPER_TIMEOUT_MS` at `60000` or above on CPU — WebM/Opus
+  decoding measured ~27 s per short clip idle on a consumer laptop, exceeding
+  the previous 30 s default under load.
 - GPU is optional; set `WHISPER_DEVICE=cuda` and `WHISPER_COMPUTE_TYPE=float16`.
   Do not assume hosted PaaS platforms provide GPU inference — if the target
   host cannot run the model, keep transcription provider-swappable via
