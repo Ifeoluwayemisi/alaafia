@@ -418,22 +418,22 @@ curl -X POST http://localhost:5000/api/v1/facilities/search \
 
 ## Environment Variables Reference
 
-| Variable                     | Description                 | Default                 |
-| ---------------------------- | --------------------------- | ----------------------- |
-| `DB_NAME`                    | PostgreSQL database name    | `alafia_db`             |
-| `DB_USER`                    | PostgreSQL user             | `postgres`              |
-| `DB_PASSWORD`                | PostgreSQL password         | `postgres`              |
-| `DB_HOST`                    | PostgreSQL host             | `localhost`             |
-| `DB_PORT`                    | PostgreSQL port             | `5432`                  |
-| `OPENAI_API_KEY`             | OpenAI API key              | (required for live AI)  |
-| `OPENAI_MODEL`               | Structured extraction model | `gpt-4o-mini`           |
-| `WHISPER_SERVICE_URL`        | Self-hosted Whisper URL     | `http://localhost:8001` |
-| `WHISPER_SERVICE_TOKEN`      | Whisper service auth token  | (empty disables auth)   |
-| `WHISPER_TIMEOUT_MS`         | Transcription timeout       | `30000`                 |
-| `YARNGPT_API_KEY`            | YarnGPT TTS API key         | (required for live TTS) |
-| `PORT`                       | Server port                 | `5000`                  |
-| `NODE_ENV`                   | Environment                 | `development`           |
-| `FRONTEND_URL`               | Frontend CORS origin        | `http://localhost:3000` |
+| Variable                | Description                 | Default                 |
+| ----------------------- | --------------------------- | ----------------------- |
+| `DB_NAME`               | PostgreSQL database name    | `alafia_db`             |
+| `DB_USER`               | PostgreSQL user             | `postgres`              |
+| `DB_PASSWORD`           | PostgreSQL password         | `postgres`              |
+| `DB_HOST`               | PostgreSQL host             | `localhost`             |
+| `DB_PORT`               | PostgreSQL port             | `5432`                  |
+| `OPENAI_API_KEY`        | OpenAI API key              | (required for live AI)  |
+| `OPENAI_MODEL`          | Structured extraction model | `gpt-4o-mini`           |
+| `WHISPER_SERVICE_URL`   | Self-hosted Whisper URL     | `http://localhost:8001` |
+| `WHISPER_SERVICE_TOKEN` | Whisper service auth token  | (empty disables auth)   |
+| `WHISPER_TIMEOUT_MS`    | Transcription timeout       | `30000`                 |
+| `YARNGPT_API_KEY`       | YarnGPT TTS API key         | (required for live TTS) |
+| `PORT`                  | Server port                 | `5000`                  |
+| `NODE_ENV`              | Environment                 | `development`           |
+| `FRONTEND_URL`          | Frontend CORS origin        | `http://localhost:3000` |
 
 ## License
 
