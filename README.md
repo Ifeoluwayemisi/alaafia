@@ -19,7 +19,10 @@ Alaafia is not a diagnostic chatbot. Its purpose is to reduce the delay between 
 ## Live Demo
 
 - **Live application**: To be added
-- **Backend API**: To be added
+- **Backend API**: 
+```text
+alaafia-production.up.railway.app
+```
 - **Recorded demo**: To be added
 
 Local backend URL:
