@@ -1,6 +1,7 @@
 const SupportRequest = require("../models/SupportRequest");
 const supportRequestService = require("../services/support/supportRequest.service");
 const { ERROR_STATUS, publicPaymentView } = require("./paymentController");
+const { resolveActor } = require("../utils/actor");
 
 function fail(res, error) {
   const status = ERROR_STATUS[error.code] || 500;
@@ -17,7 +18,8 @@ function fail(res, error) {
 class SupportRequestController {
   static async create(req, res) {
     try {
-      const { patientRef, consultationId, requestedAmountMinor, contacts, message, expiresAt } = req.body || {};
+      const { patientRef: bodyPatientRef, consultationId, requestedAmountMinor, contacts, message, expiresAt } = req.body || {};
+      const patientRef = resolveActor(req, bodyPatientRef);
       if (!patientRef) {
         const err = new Error("patientRef is required (user or guest session id)");
         err.code = "VALIDATION_ERROR";
@@ -69,7 +71,7 @@ class SupportRequestController {
 
   static async detailsForPatient(req, res) {
     try {
-      const patientRef = req.query.patientRef || req.body?.patientRef;
+      const patientRef = resolveActor(req, req.query.patientRef || req.body?.patientRef);
       const request = await supportRequestService.getByIdForPatient(
         req.params.id,
         patientRef || null
@@ -128,7 +130,7 @@ class SupportRequestController {
 
   static async cancel(req, res) {
     try {
-      const patientRef = req.body?.patientRef;
+      const patientRef = resolveActor(req, req.body?.patientRef);
       const request = await supportRequestService.cancel(req.params.id, patientRef || null);
       return res.json({
         success: true,

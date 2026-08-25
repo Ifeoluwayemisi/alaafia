@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { Op } = require("sequelize");
 const { sequelize } = require("../../models");
 const PaymentRequest = require("../../models/PaymentRequest");
 const SupportRequest = require("../../models/SupportRequest");
@@ -39,7 +40,11 @@ const TRANSITIONS = {
   PROCESSING: ["PAID", "FAILED", "EXPIRED", "CANCELLED"],
   PAID: [],
   FAILED: [],
-  EXPIRED: [],
+  // EXPIRED is not strictly terminal: the one-time virtual account ages out,
+  // but money can still arrive late. Only a server-side verification that
+  // observes gateway status=completed with an exact amount/orderId match may
+  // take this path — money truth always wins over timers.
+  EXPIRED: ["PAID"],
   CANCELLED: [],
 };
 
@@ -402,6 +407,36 @@ async function confirmSimulatedPayment(paymentId) {
   return { payment: await payment.reload(), verification: outcome };
 }
 
+/**
+ * Housekeeping sweep: ALATPay one-time virtual accounts expire ~30 minutes
+ * after creation. PROCESSING payments older than the stale window are marked
+ * EXPIRED so dashboards stop showing them as pending. This never touches
+ * money: if an inflow lands late, a later verify() requeries the provider and
+ * applyGatewayUpdate() may still take EXPIRED -> PAID.
+ */
+async function sweepStaleProcessing({ staleAfterMinutes = 45, limit = 200 } = {}) {
+  const cutoff = new Date(Date.now() - staleAfterMinutes * 60 * 1000);
+  const stale = await PaymentRequest.findAll({
+    where: { status: "PROCESSING", updatedAt: { [Op.lt]: cutoff } },
+    limit,
+  });
+  let expired = 0;
+  for (const payment of stale) {
+    await payment.update({
+      status: "EXPIRED",
+      lastError: {
+        code: "VA_EXPIRED",
+        message: `No confirmed inflow within ${staleAfterMinutes} minutes`,
+      },
+    });
+    expired += 1;
+  }
+  if (expired > 0) {
+    console.log(`[payments] sweep expired=${expired} staleAfterMinutes=${staleAfterMinutes}`);
+  }
+  return { expired };
+}
+
 module.exports = {
   initiate,
   getById,
@@ -411,4 +446,5 @@ module.exports = {
   applyGatewayUpdate,
   recalcSupportTotals,
   getPlatformFeePolicy,
+  sweepStaleProcessing,
 };

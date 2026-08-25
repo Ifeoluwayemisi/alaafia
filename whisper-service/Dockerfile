@@ -28,8 +28,10 @@ EXPOSE 8001
 
 # Runtime model download can take several minutes; /health returns 200 only
 # after the model is loaded and ready.
+# Shell-form so ${PORT:-8001} is expanded: Railway may inject PORT.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=600s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=4).status == 200 else 1)"
+  CMD sh -c 'python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(\"http://127.0.0.1:'"${PORT:-8001}"'/health\", timeout=4).status == 200 else 1)"'
 
 # One worker: all requests must share a single model instance.
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+# Shell-form CMD so Railway-injected $PORT is honored (defaults to 8001).
+CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port \"${PORT:-8001}\" --workers 1"]

@@ -1,4 +1,6 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -16,6 +18,12 @@ const guidanceRoutes = require("./routes/guidanceRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const supportRequestRoutes = require("./routes/supportRequestRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
+const swaggerUi = require("swagger-ui-express");
+const yaml = require("js-yaml");
+
+const openApiDocument = yaml.load(
+  fs.readFileSync(path.join(__dirname, "../docs/openapi.yaml"), "utf8"),
+);
 
 const app = express();
 
@@ -37,7 +45,7 @@ app.use(
 // before the JSON parser claims the body.
 app.use(
   ["/api/v1/webhooks/wema", "/api/v1/webhooks/alatpay"],
-  express.raw({ type: "*/*", limit: "1mb" })
+  express.raw({ type: "*/*", limit: "1mb" }),
 );
 
 app.use(express.json({ limit: "50mb" }));
@@ -53,6 +61,12 @@ const limiter = rateLimit({
 });
 
 app.use("/api", limiter);
+
+app.get("/api-docs.json", (req, res) => {
+  res.json(openApiDocument);
+});
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Health check endpoint
 app.get("/api/v1/health", (req, res) => {

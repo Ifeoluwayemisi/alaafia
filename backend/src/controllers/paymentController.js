@@ -1,6 +1,7 @@
 const PaymentRequest = require("../models/PaymentRequest");
 const SupportRequest = require("../models/SupportRequest");
 const paymentService = require("../services/payments/payment.service");
+const { resolveActor } = require("../utils/actor");
 
 const ERROR_STATUS = {
   VALIDATION_ERROR: 400,
@@ -62,6 +63,7 @@ class PaymentController {
   static async initiate(req, res) {
     try {
       const { type, amountMinor, currency, consultationId, supportRequestId, actorId, contributorName, contributorContact, customer, description, metadata } = req.body || {};
+      const effectiveActorId = resolveActor(req, actorId);
       const idempotencyKey =
         req.get("Idempotency-Key") || (req.body && req.body.idempotencyKey) || null;
       if (!["CARE_PAYMENT", "SUPPORT_CONTRIBUTION"].includes(type)) {
@@ -75,7 +77,7 @@ class PaymentController {
         currency,
         consultationId: consultationId || null,
         supportRequestId: supportRequestId || null,
-        actorId: actorId || null,
+        actorId: effectiveActorId || null,
         contributorName: contributorName || null,
         contributorContact: contributorContact || null,
         customer: customer || null,
@@ -128,7 +130,7 @@ class PaymentController {
 
   static async cancel(req, res) {
     try {
-      const actorId = req.body?.actorId || null;
+      const actorId = resolveActor(req, req.body?.actorId);
       const payment = await paymentService.cancel(req.params.id, actorId);
       return res.json({
         success: true,

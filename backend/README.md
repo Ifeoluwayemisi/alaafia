@@ -139,6 +139,9 @@ npm start
 
 Server starts on `http://localhost:5000`
 
+Interactive API documentation is available at `http://localhost:5000/api-docs`.
+The raw OpenAPI JSON document is available at `http://localhost:5000/api-docs.json`.
+
 ## API Endpoints
 
 ### Consultations
