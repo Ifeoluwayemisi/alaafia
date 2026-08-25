@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   Home,
   Mic,
@@ -39,12 +40,15 @@ import {
   Shield,
   Flag,
   Share,
+  RefreshCw,
 } from "lucide-react";
 import EmergencyModal from "@/components/EmergencyModal";
 import LogoutModal from "@/components/LogoutModal";
 import VoiceListeningBox from "@/components/VoiceListeningBox";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { api } from "@/lib/api";
+import { getStoredUser, logout } from "@/app/services/authService";
 
 // Dynamic import for Leaflet map component (No SSR)
 const RealMap = dynamic(() => import("@/components/RealMap"), {
@@ -58,35 +62,45 @@ const RealMap = dynamic(() => import("@/components/RealMap"), {
 });
 
 export default function ConsultationPage() {
-  // Stage 1: Speak, Stage 2: Understand, Stage 3: Guide, Stage 4: Connect (Map), Stage 5: Full Found Summary
+  const router = useRouter();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const [stage, setStage] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const [understandStep, setUnderstandStep] = useState<"review" | "questions">("review"); // Sub-steps in Stage 2
+  const [understandStep, setUnderstandStep] = useState<"review" | "questions">("review");
   const [isRecording, setIsRecording] = useState(false);
   const [isTypingMode, setIsTypingMode] = useState(false);
   const [typedInput, setTypedInput] = useState("");
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
-  const [userTranscript, setUserTranscript] = useState(
-    "Persistent headache and feeling tired. Started 3 days ago and becomes worse in the evening."
-  );
+  const [userTranscript, setUserTranscript] = useState("");
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // Live Location & Live Hospitals State
+  const [consultationId, setConsultationId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  const [triageData, setTriageData] = useState<any>(null);
+  const [guidanceData, setGuidanceData] = useState<any>(null);
+  const [hospitalRecs, setHospitalRecs] = useState<any[]>([]);
+  const [emergencyData, setEmergencyData] = useState<any>(null);
+  const [symptoms, setSymptoms] = useState<any[]>([]);
+
   const [liveLocationName, setLiveLocationName] = useState("Lagos, Nigeria");
   const [isLocating, setIsLocating] = useState(true);
   const [liveHospitals, setLiveHospitals] = useState<any[]>([]);
   const [selectedHospitalDirections, setSelectedHospitalDirections] = useState<any | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("alaafia_user");
-      if (stored) {
-        setUserProfile(JSON.parse(stored));
-      }
-    } catch (e) {}
-  }, []);
+    const user = getStoredUser();
+    if (!user) {
+      router.push("/signin");
+      return;
+    }
+    setUserProfile(user);
+  }, [router]);
 
   const userInitial = userProfile?.firstName
     ? userProfile.firstName.charAt(0).toUpperCase()
@@ -171,25 +185,98 @@ export default function ConsultationPage() {
       selectedAnswers[currentQuestionIndex].trim() !== ""
   );
 
-  const startRecording = () => {
+  const startRecording = async () => {
+    setApiError("");
     setIsRecording(true);
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.start();
+    } catch {
+      setIsRecording(false);
+      setApiError("Microphone access denied. Please enable it in your browser settings.");
+    }
   };
 
-  const stopRecordingAndProceedToUnderstand = () => {
+  const stopRecordingAndProceedToUnderstand = async () => {
     setIsRecording(false);
-    setStage(2);
-    setUnderstandStep("review");
-    setCurrentQuestionIndex(0);
+    setApiError("");
+
+    let audioBlob: Blob | null = null;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        mediaRecorderRef.current!.onstop = () => resolve();
+        mediaRecorderRef.current!.stop();
+      });
+      audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+    }
+
+    const transcript = userTranscript.trim();
+    if (!transcript && !audioBlob) {
+      setApiError("No speech detected. Please try again.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let cid = consultationId;
+      if (!cid) {
+        const consult = await api.post("/consultations", {
+          message: transcript || "Voice consultation",
+          language: "en-NG",
+        });
+        cid = consult.consultation.id;
+        setConsultationId(cid);
+        if (consult.extraction?.symptoms) setSymptoms(consult.extraction.symptoms);
+      }
+
+      if (audioBlob && audioBlob.size > 0) {
+        const fd = new FormData();
+        fd.append("audio", audioBlob, "recording.webm");
+        fd.append("language", "en-NG");
+        const voiceResult = await api.upload(`/consultations/${cid}/voice`, fd);
+        setUserTranscript(voiceResult.transcript || transcript);
+      } else {
+        setUserTranscript(transcript);
+      }
+
+      setStage(2);
+      setUnderstandStep("review");
+      setCurrentQuestionIndex(0);
+    } catch (err: any) {
+      setApiError(err.message || "Failed to process voice. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleTypeSubmit = (e: React.FormEvent) => {
+  const handleTypeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (typedInput.trim()) {
-      setUserTranscript(typedInput);
+    if (!typedInput.trim()) return;
+    setApiError("");
+    setIsSubmitting(true);
+    try {
+      const consult = await api.post("/consultations", {
+        message: typedInput.trim(),
+        language: "en-NG",
+      });
+      setConsultationId(consult.consultation.id);
+      if (consult.extraction?.symptoms) setSymptoms(consult.extraction.symptoms);
+      setUserTranscript(typedInput.trim());
       setTypedInput("");
       setStage(2);
       setUnderstandStep("review");
       setCurrentQuestionIndex(0);
+    } catch (err: any) {
+      setApiError(err.message || "Failed to create consultation.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -208,12 +295,52 @@ export default function ConsultationPage() {
     }
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (!isCurrentAnswerSelected) return;
     if (currentQuestionIndex < followUpQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      setStage(3);
+      if (!consultationId) {
+        setApiError("No active consultation. Please start over.");
+        return;
+      }
+      setIsSubmitting(true);
+      setApiError("");
+      try {
+        await api.post(`/consultations/${consultationId}/confirm-transcript`, {
+          transcript: userTranscript,
+          confirmed: true,
+        });
+
+        const triage = await api.post("/triage", { consultationId: Number(consultationId) });
+        setTriageData(triage);
+
+        try {
+          const guidance = await api.get(`/guidance/${consultationId}`);
+          setGuidanceData(guidance);
+        } catch {}
+
+        try {
+          const userLocation = await new Promise<{ lat: number; lng: number }>((resolve) => {
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => resolve({ lat: 6.5244, lng: 3.3792 })
+              );
+            } else {
+              resolve({ lat: 6.5244, lng: 3.3792 });
+            }
+          });
+          const recs = await api.get(`/hospitals/recommended?consultationId=${consultationId}&latitude=${userLocation.lat}&longitude=${userLocation.lng}&radius=15`);
+          setHospitalRecs(recs.recommendations || []);
+        } catch {}
+
+        setStage(3);
+      } catch (err: any) {
+        setApiError(err.message || "Failed to process consultation.");
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -261,31 +388,42 @@ export default function ConsultationPage() {
   };
 
   const handleDownloadSummary = () => {
+    const symptomList = symptoms.length > 0
+      ? symptoms.map((s: any) => `- ${s.name}`).join("\n")
+      : `- ${userTranscript}`;
+    const severity = triageData?.severity || "Not determined";
+    const careType = triageData?.requiredCare?.emergencyCare ? "Emergency department"
+      : triageData?.requiredCare?.specialties?.length > 0
+        ? triageData.requiredCare.specialties.join(", ")
+        : "Primary care";
+    const nearestHospital = hospitalRecs.length > 0 ? (hospitalRecs[0].hospital || hospitalRecs[0]) : null;
+    const guidanceInstructions = (guidanceData?.guidance?.instructions || [
+      "Monitor your symptoms",
+      "Follow self-care guidance",
+      "Speak with a healthcare professional",
+      "Seek urgent care if warning signs appear",
+    ]).map((inst: string, i: number) => `${i + 1}. ${inst}`).join("\n");
+
     const summaryText = `ALAAFIA HEALTHCARE CONSULTATION SUMMARY
 ========================================
 Date: ${new Date().toLocaleDateString()}
-Status: Complete (Routine Care)
+Status: Complete
 
 WHAT YOU TOLD US:
-- Persistent headache
-- Feeling tired
-- Symptoms started 3 days ago
-- Symptoms become worse in the evening
+${symptomList}
 
 WHAT THIS MAY SUGGEST:
-Your symptoms may be consistent with several possible causes. Based on what you've shared, further evaluation may be helpful. Tension headaches or mild dehydration are common explanations, but only a healthcare professional can provide an accurate diagnosis.
+Severity: ${severity}.
+${(guidanceData?.guidance?.instructions || []).join(" ") || "Based on the information provided, further evaluation may be helpful."}
 
-RECOMMENDED URGENCY: Routine care (No immediate danger indicated)
-RECOMMENDED CARE: Primary care clinic / General practitioner
-NEARBY CLINIC: City Clinic, Ikeja (2.4km)
+RECOMMENDED URGENCY: ${severity === "CRITICAL" ? "Emergency care needed" : severity === "HIGH" ? "Urgent care recommended" : severity === "MEDIUM" ? "Timely care advised" : "Routine care"}
+RECOMMENDED CARE: ${careType}
+${nearestHospital ? `NEAREST FACILITY: ${nearestHospital.name}, ${nearestHospital.address || ""}` : ""}
 
 WHAT TO DO NEXT:
-1. Monitor symptoms
-2. Follow self-care guidance (hydration & rest)
-3. Speak with a professional
-4. Seek urgent care if warning signs appear
+${guidanceInstructions}
 
-Disclaimer: Alaafia provides guidance based on user-reported information and does not replace professional medical diagnosis.`;
+${triageData?.redFlags?.length > 0 ? `RED FLAGS:\n${triageData.redFlags.map((f: string) => `- ${f}`).join("\n")}\n\n` : ""}Disclaimer: Alaafia provides guidance based on user-reported information and does not replace professional medical diagnosis.`;
 
     const blob = new Blob([summaryText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -477,22 +615,17 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <span>What you told us</span>
                       </h4>
                       <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/60 space-y-2.5 text-xs text-slate-700 font-medium">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
-                          <span>Persistent headache</span>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
-                          <span>Feeling tired</span>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
-                          <span>Symptoms started 3 days ago</span>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
-                          <span>Symptoms become worse in the evening</span>
-                        </div>
+                        {symptoms.length > 0 ? symptoms.map((s: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2.5">
+                            <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
+                            <span>{s.name}</span>
+                          </div>
+                        )) : (
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-3.5 h-3.5 rounded-full border-2 border-teal-600 shrink-0" />
+                            <span>{userTranscript}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -503,7 +636,16 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <span>What this may suggest</span>
                       </h4>
                       <div className="p-4 bg-[#f0f9ff]/70 border border-sky-200/80 rounded-2xl text-xs text-slate-700 leading-relaxed">
-                        Your symptoms may be consistent with several possible causes. Based on what you've shared, further evaluation may be helpful. <strong>Tension headaches or mild dehydration</strong> are common explanations, but only a healthcare professional can provide an accurate diagnosis.
+                        {triageData ? (
+                          <>
+                            Severity: <strong>{triageData.severity}</strong>.
+                            {(guidanceData?.guidance?.instructions || []).length > 0
+                              ? ` ${guidanceData.guidance.instructions.join(" ")}`
+                              : " Based on the information provided, further evaluation may be helpful."}
+                          </>
+                        ) : (
+                          "Based on what you shared, further evaluation may be helpful."
+                        )}
                       </div>
                     </div>
                   </div>
@@ -518,57 +660,35 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                     </div>
 
                     <div className="space-y-3">
-                      {/* Step 1 */}
-                      <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-teal-50/30 transition-all flex items-start gap-3.5">
-                        <div className="w-7 h-7 rounded-full border-2 border-[#006666] text-[#006666] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          01
+                      {(guidanceData?.guidance?.instructions || [
+                        "Monitor your symptoms",
+                        "Follow self-care guidance",
+                        "Speak with a healthcare professional",
+                        "Seek urgent care if warning signs appear",
+                      ]).map((instruction: string, i: number) => (
+                        <div key={i} className={`p-4 rounded-2xl border transition-all flex items-start gap-3.5 ${
+                          i === (guidanceData?.guidance?.instructions?.length || 4) - 1 && triageData?.severity !== "LOW"
+                            ? "border-red-200/80 bg-red-50/40 hover:bg-red-50/60"
+                            : "border-slate-200/80 bg-slate-50/50 hover:bg-teal-50/30"
+                        }`}>
+                          <div className={`w-7 h-7 rounded-full border-2 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 ${
+                            i === (guidanceData?.guidance?.instructions?.length || 4) - 1 && triageData?.severity !== "LOW"
+                              ? "border-red-500 text-red-600"
+                              : "border-[#006666] text-[#006666]"
+                          }`}>
+                            {String(i + 1).padStart(2, "0")}
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className={`text-xs leading-relaxed ${
+                              i === (guidanceData?.guidance?.instructions?.length || 4) - 1 && triageData?.severity !== "LOW"
+                                ? "text-red-600/90 font-semibold"
+                                : "text-slate-600"
+                            }`}>
+                              {instruction}
+                            </p>
+                          </div>
                         </div>
-                        <div className="space-y-0.5">
-                          <h5 className="text-xs font-bold text-slate-900">Monitor symptoms</h5>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            Keep track of when the headaches occur and if they change in intensity.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Step 2 */}
-                      <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-teal-50/30 transition-all flex items-start gap-3.5">
-                        <div className="w-7 h-7 rounded-full border-2 border-[#006666] text-[#006666] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          02
-                        </div>
-                        <div className="space-y-0.5">
-                          <h5 className="text-xs font-bold text-slate-900">Follow self-care guidance</h5>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            Ensure you are well-hydrated and getting adequate rest.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Step 3 */}
-                      <div className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-teal-50/30 transition-all flex items-start gap-3.5">
-                        <div className="w-7 h-7 rounded-full border-2 border-[#006666] text-[#006666] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          03
-                        </div>
-                        <div className="space-y-0.5">
-                          <h5 className="text-xs font-bold text-slate-900">Speak with a professional</h5>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            If symptoms persist for more than a few days, schedule a consultation.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Step 4: Seek urgent care (red border) */}
-                      <div className="p-4 rounded-2xl border border-red-200/80 bg-red-50/40 hover:bg-red-50/60 transition-all flex items-start gap-3.5">
-                        <div className="w-7 h-7 rounded-full border-2 border-red-500 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                          04
-                        </div>
-                        <div className="space-y-0.5">
-                          <h5 className="text-xs font-bold text-red-700">Seek urgent care</h5>
-                          <p className="text-xs text-red-600/90 leading-relaxed">
-                            If warning signs appear (e.g., sudden severe pain, vision changes, confusion).
-                          </p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -585,7 +705,12 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
                           RECOMMENDED URGENCY
                         </span>
-                        <h4 className="text-base font-bold text-slate-900">Routine care</h4>
+                        <h4 className="text-base font-bold text-slate-900">
+                          {triageData?.severity === "CRITICAL" ? "Emergency care needed" :
+                           triageData?.severity === "HIGH" ? "Urgent care recommended" :
+                           triageData?.severity === "MEDIUM" ? "Timely care advised" :
+                           "Routine care"}
+                        </h4>
                       </div>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
@@ -603,7 +728,12 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
                           RECOMMENDED CARE
                         </span>
-                        <h4 className="text-base font-bold text-slate-900">Primary care</h4>
+                        <h4 className="text-base font-bold text-slate-900">
+                          {triageData?.requiredCare?.emergencyCare ? "Emergency department" :
+                           triageData?.requiredCare?.specialties?.length > 0
+                             ? triageData.requiredCare.specialties.join(", ")
+                             : "Primary care"}
+                        </h4>
                       </div>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
@@ -629,21 +759,35 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <div className="flex items-center gap-2 bg-white/95 px-3 py-1.5 rounded-full shadow-xs border border-teal-100 text-xs font-bold text-slate-800">
                           <span className="w-2.5 h-2.5 rounded-full bg-teal-600 animate-ping" />
                           <MapPin className="w-3.5 h-3.5 text-[#006666]" />
-                          <span>City Clinic, Ikeja</span>
+                          <span>{hospitalRecs.length > 0 ? (hospitalRecs[0].hospital || hospitalRecs[0]).name : "Nearby facilities"}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h5 className="text-sm font-bold text-slate-900">City Clinic</h5>
-                        <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
-                          2.4km
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-medium">
-                        General Practice • Open Now
-                      </p>
+                      {hospitalRecs.length > 0 ? (() => {
+                        const h = hospitalRecs[0].hospital || hospitalRecs[0];
+                        return (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <h5 className="text-sm font-bold text-slate-900">{h.name}</h5>
+                              <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                                {hospitalRecs[0].distanceKm ? `${hospitalRecs[0].distanceKm.toFixed(1)} km` : ""}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium">
+                              {h.facilityType || "Healthcare facility"} • {h.operationalStatus || "Open"}
+                            </p>
+                          </>
+                        );
+                      })() : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-bold text-slate-900">Loading...</h5>
+                          </div>
+                          <p className="text-xs text-slate-500 font-medium">Searching nearby facilities</p>
+                        </>
+                      )}
                     </div>
 
                     <button
@@ -669,6 +813,19 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         setStage(1);
                         setUnderstandStep("review");
                         setCurrentQuestionIndex(0);
+                        setUserTranscript("");
+                        setConsultationId(null);
+                        setTriageData(null);
+                        setGuidanceData(null);
+                        setHospitalRecs([]);
+                        setSymptoms([]);
+                        setSelectedAnswers({});
+                        setCustomTextInputs({});
+                        setIsRecording(false);
+                        setIsEditingTranscript(false);
+                        setIsTypingMode(false);
+                        setTypedInput("");
+                        setApiError("");
                       }}
                       className="w-full py-3 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-all cursor-pointer text-center"
                     >
@@ -698,6 +855,16 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                   {stage === 3 && "Here's what you can do next."}
                   {stage === 4 && "Find the right care near you."}
                 </h2>
+
+                {apiError && (
+                  <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{apiError}</span>
+                    <button onClick={() => setApiError("")} className="ml-auto shrink-0 cursor-pointer">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 {stage !== 4 ? (
                   <p className="text-slate-600 text-sm sm:text-base">
@@ -830,10 +997,20 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                             </button>
                             <button
                               onClick={stopRecordingAndProceedToUnderstand}
-                              className="bg-[#006666] hover:bg-[#004d4d] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                              disabled={isSubmitting}
+                              className="bg-[#006666] hover:bg-[#004d4d] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <span>Done & Continue</span>
-                              <span>→</span>
+                              {isSubmitting ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Processing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Done & Continue</span>
+                                  <span>→</span>
+                                </>
+                              )}
                             </button>
                           </div>
                         </div>
@@ -901,7 +1078,8 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         <button
                           onClick={() => {
                             setStage(1);
-                            setIsRecording(true);
+                            setUserTranscript("");
+                            setIsRecording(false);
                           }}
                           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 cursor-pointer"
                         >
@@ -1034,37 +1212,63 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                   {/* STAGE 3: GUIDE STAGE */}
                   {stage === 3 && (
                     <>
-                      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-extrabold uppercase tracking-wider">
-                          <span>• ROUTINE CARE</span>
+                      {isSubmitting && (
+                        <div className="bg-white rounded-3xl p-8 border border-slate-200/90 shadow-xl flex flex-col items-center gap-3">
+                          <RefreshCw className="w-6 h-6 text-teal-600 animate-spin" />
+                          <p className="text-sm text-slate-600 font-medium">Analyzing your symptoms...</p>
                         </div>
+                      )}
+                      {!isSubmitting && triageData && (
+                        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-300">
+                          <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider ${
+                            triageData.severity === "CRITICAL" ? "bg-red-50 border border-red-200 text-red-800" :
+                            triageData.severity === "HIGH" ? "bg-orange-50 border border-orange-200 text-orange-800" :
+                            triageData.severity === "MEDIUM" ? "bg-yellow-50 border border-yellow-200 text-yellow-800" :
+                            "bg-sky-50 border border-sky-200 text-sky-800"
+                          }`}>
+                            <span>• {triageData.severity} PRIORITY</span>
+                          </div>
 
-                        <div className="space-y-2">
-                          <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
-                            Routine primary care consultation suggested.
-                          </h3>
-                          <p className="text-slate-600 text-sm leading-relaxed">
-                            Based on what you've shared, your symptoms suggest mild tension headache or fatigue that can be safely evaluated by a general practitioner.
-                          </p>
+                          <div className="space-y-2">
+                            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
+                              {guidanceData?.guidance?.title || `${triageData.severity} care recommended`}
+                            </h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                              {(guidanceData?.guidance?.instructions || []).join(". ") || "Based on your symptoms, here is what we recommend."}
+                            </p>
+                          </div>
+
+                          {triageData.redFlags?.length > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+                              <p className="text-xs font-bold text-red-800 uppercase tracking-wider">Red Flags Detected</p>
+                              {triageData.redFlags.map((flag: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-red-700">
+                                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <span>{flag}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-3 pt-2">
+                            <button
+                              onClick={() => setStage(4)}
+                              disabled={isSubmitting}
+                              className="inline-flex items-center gap-2 bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold text-xs px-6 py-2.5 rounded-xl shadow-2xs transition-all cursor-pointer"
+                            >
+                              <span>Find nearby care</span>
+                              <ArrowRight className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => setStage(5)}
+                              className="inline-flex items-center gap-2 border border-slate-300 hover:border-slate-400 bg-white text-slate-700 font-semibold text-xs px-5 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
+                            >
+                              <span>View full summary</span>
+                            </button>
+                          </div>
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-3 pt-2">
-                          <button
-                            onClick={() => setStage(4)}
-                            className="inline-flex items-center gap-2 bg-[#0d9488] hover:bg-[#0f766e] text-white font-semibold text-xs px-6 py-2.5 rounded-xl shadow-2xs transition-all cursor-pointer"
-                          >
-                            <span>Find nearby clinics</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => setStage(5)}
-                            className="inline-flex items-center gap-2 border border-slate-300 hover:border-slate-400 bg-white text-slate-700 font-semibold text-xs px-5 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
-                          >
-                            <span>View full summary</span>
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </>
                   )}
 
@@ -1095,26 +1299,40 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                           <div className="flex justify-between items-start gap-2">
                             <span className="text-slate-500 font-medium shrink-0">Main Concern</span>
                             <span className="font-semibold text-slate-900 text-right leading-tight">
-                              Persistent headache, Fatigue
+                              {symptoms.length > 0
+                                ? symptoms.map((s: any) => s.name).join(", ")
+                                : userTranscript.slice(0, 50) + (userTranscript.length > 50 ? "..." : "")}
                             </span>
                           </div>
 
                           <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Started</span>
-                            <span className="font-semibold text-slate-900">3 days ago</span>
+                            <span className="text-slate-500 font-medium">Severity</span>
+                            <span className="font-semibold text-slate-900">
+                              {triageData?.severity || "Evaluating..."}
+                            </span>
                           </div>
 
                           <div className="flex justify-between items-start gap-2">
                             <span className="text-slate-500 font-medium shrink-0">Guidance</span>
                             <span className="font-bold text-[#006666] text-right flex items-center gap-1 justify-end leading-tight">
                               <CheckCircle2 className="w-3.5 h-3.5 text-[#006666] shrink-0" />
-                              <span>Routine Care Recommended</span>
+                              <span>
+                                {triageData?.severity === "CRITICAL" ? "Emergency Care" :
+                                 triageData?.severity === "HIGH" ? "Urgent Care" :
+                                 triageData?.severity === "MEDIUM" ? "Timely Care" :
+                                 "Routine Care Recommended"}
+                              </span>
                             </span>
                           </div>
 
                           <div className="flex justify-between items-center">
                             <span className="text-slate-500 font-medium">Urgency</span>
-                            <span className="font-semibold text-slate-900">At your convenience</span>
+                            <span className="font-semibold text-slate-900">
+                              {triageData?.severity === "CRITICAL" ? "Immediate" :
+                               triageData?.severity === "HIGH" ? "Same day" :
+                               triageData?.severity === "MEDIUM" ? "Within 48 hours" :
+                               "At your convenience"}
+                            </span>
                           </div>
                         </div>
 
@@ -1147,25 +1365,27 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                         </h4>
 
                         <div className="space-y-2.5">
-                          {liveHospitals.length > 0 ? (
-                            liveHospitals.map((h, idx) => (
+                          {liveHospitals.length > 0 || hospitalRecs.length > 0 ? (
+                            (hospitalRecs.length > 0 ? hospitalRecs : liveHospitals).map((h: any, idx: number) => {
+                              const hospital = h.hospital || h;
+                              return (
                               <div
-                                key={h.id || idx}
+                                key={hospital.id || idx}
                                 className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs space-y-2.5 transition-all hover:border-teal-300"
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div>
-                                    <h5 className="text-xs font-bold text-slate-900">{h.name}</h5>
-                                    <p className="text-[11px] text-slate-500">{h.address}</p>
+                                    <h5 className="text-xs font-bold text-slate-900">{hospital.name}</h5>
+                                    <p className="text-[11px] text-slate-500">{hospital.address}</p>
                                   </div>
                                   <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100 shrink-0">
-                                    📍 {h.distance}
+                                    {h.distanceKm ? `${h.distanceKm.toFixed(1)} km` : hospital.distanceKm ? `${hospital.distanceKm.toFixed(1)} km` : ""}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 font-semibold">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  <span>{h.status}</span>
+                                  <span>{hospital.operationalStatus || "unknown"}</span>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-1">
@@ -1176,7 +1396,7 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                                     View summary
                                   </button>
                                   <button
-                                    onClick={() => setSelectedHospitalDirections(h)}
+                                    onClick={() => setSelectedHospitalDirections(hospital)}
                                     className="flex-1 bg-[#0d9488] hover:bg-[#0f766e] text-white text-center font-bold text-xs py-1.5 rounded-lg shadow-2xs transition-all flex items-center justify-center gap-1 cursor-pointer"
                                   >
                                     <Navigation className="w-3 h-3" />
@@ -1184,7 +1404,8 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
                                   </button>
                                 </div>
                               </div>
-                            ))
+                              );
+                            })
                           ) : (
                             <div className="p-4 bg-white rounded-2xl border border-slate-200 text-xs text-slate-500 text-center animate-pulse">
                               Searching live medical facilities near your GPS position...

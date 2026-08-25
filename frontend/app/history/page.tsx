@@ -39,6 +39,7 @@ import EmergencyModal from "@/components/EmergencyModal";
 import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useAuthRedirect } from "@/lib/useAuthRedirect";
 
 export interface ConsultationHistoryItem {
   id: string | number;
@@ -56,6 +57,7 @@ export interface ConsultationHistoryItem {
 }
 
 export default function HistoryPage() {
+  useAuthRedirect();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isNewUser, setIsNewUser] = useState(false);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);

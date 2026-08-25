@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Alafia</title>
+  <desc id="desc">Alafia healthcare navigation mark</desc>
+  <defs>
+    <linearGradient id="field" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#f0fdfa"/>
+  <path d="M32 5C18.745 5 8 15.745 8 29c0 17.5 18.3 26.06 23.1 29.78a1.5 1.5 0 0 0 1.8 0C37.7 55.06 56 46.5 56 29 56 15.745 45.255 5 32 5Z" fill="url(#field)"/>
+  <path d="m21 42 10.5-22h5L47 42h-6.1l-2.25-5.15H25.25L23.1 42H21Zm6.65-9.7h8.5L31.9 22.5l-4.25 9.8Z" fill="#fff"/>
+  <path d="M32 14v8M28 18h8" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M18 48c4.7 3.3 9.35 4.95 14 4.95S41.3 51.3 46 48" fill="none" stroke="#99f6e4" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+</svg>

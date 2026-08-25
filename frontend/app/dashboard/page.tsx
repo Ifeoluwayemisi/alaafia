@@ -32,8 +32,10 @@ import EmergencyModal from "@/components/EmergencyModal";
 import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useAuthRedirect } from "@/lib/useAuthRedirect";
 
 export default function DashboardPage() {
+  useAuthRedirect();
   // Automatically detected state: New User vs Returning/Existing User
   const [isNewUser, setIsNewUser] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);

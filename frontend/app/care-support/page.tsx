@@ -28,6 +28,7 @@ import {
 import EmergencyModal from "@/components/EmergencyModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useAuthRedirect } from "@/lib/useAuthRedirect";
 
 export interface ContactItem {
   id: string | number;
@@ -39,6 +40,7 @@ export interface ContactItem {
 }
 
 export default function CareSupportPage() {
+  useAuthRedirect();
   const [userInitial, setUserInitial] = useState("R");
   const [balance, setBalance] = useState(30000);
   const [goal, setGoal] = useState(50000);

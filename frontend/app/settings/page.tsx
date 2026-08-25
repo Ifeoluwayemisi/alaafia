@@ -35,8 +35,10 @@ import LogoutModal from "@/components/LogoutModal";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useAuthRedirect } from "@/lib/useAuthRedirect";
 
 export default function SettingsPage() {
+  useAuthRedirect();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"settings" | "edit-profile">("settings");
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
@@ -46,9 +48,9 @@ export default function SettingsPage() {
   const [toastMsg, setToastMsg] = useState("");
 
   // Form State for Profile
-  const [fullName, setFullName] = useState("Ruqayah Adebayo");
-  const [email, setEmail] = useState("ruqayah@email.com");
-  const [phone, setPhone] = useState("+234 801 234 5678");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("Lagos, Nigeria");
 
   // Temporary edit form state
@@ -74,10 +76,10 @@ export default function SettingsPage() {
         const parsed = JSON.parse(stored);
         setUserProfile(parsed);
         const name = parsed.firstName
-          ? `${parsed.firstName} ${parsed.lastName || "Adebayo"}`
-          : "Ruqayah Adebayo";
-        const em = parsed.email || "ruqayah@email.com";
-        const ph = parsed.phone || "+234 801 234 5678";
+          ? `${parsed.firstName} ${parsed.lastName || ""}`
+          : parsed.name || "User";
+        const em = parsed.email || "";
+        const ph = parsed.phone || "";
         const loc = parsed.location || "Lagos, Nigeria";
 
         setFullName(name);
