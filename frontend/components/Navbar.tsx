@@ -2,18 +2,20 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import EmergencyModal from "./EmergencyModal";
-import { Menu, X, User, ArrowRight } from "lucide-react";
-import { useUserProfile } from "@/lib/userUtils";
+import { Menu, X } from "lucide-react";
 
 interface NavbarProps {
   activePage?: "home" | "how-it-works" | "services" | "safety" | "about" | "consultation" | "dashboard";
 }
 
 export default function Navbar({ activePage }: NavbarProps) {
+  const pathname = usePathname();
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { profile, initial, displayName, isMounted } = useUserProfile();
+
+  const isSignInPage = pathname === "/signin";
 
   const navLinks = [
     { name: "How it works", href: "/how-it-works", id: "how-it-works" },
@@ -63,23 +65,20 @@ export default function Navbar({ activePage }: NavbarProps) {
           </nav>
 
           {/* Action Buttons (Desktop) */}
-          <div className="hidden md:flex items-center gap-4">
-            {isMounted && profile ? (
+          <div className="hidden md:flex items-center gap-5">
+            {!isSignInPage ? (
               <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 text-[#005c6e] px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs"
+                href="/signin"
+                className="text-sm font-semibold text-slate-700 hover:text-[#005c6e] transition-colors cursor-pointer"
               >
-                <div className="w-5 h-5 rounded-full bg-[#006666] text-white flex items-center justify-center text-[10px] font-extrabold">
-                  {initial}
-                </div>
-                <span>Dashboard ({displayName})</span>
+                Sign In
               </Link>
             ) : (
               <Link
-                href="/signin"
-                className="text-sm font-semibold text-slate-600 hover:text-[#005c6e] transition-colors"
+                href="/signup"
+                className="text-sm font-semibold text-teal-700 hover:text-[#005c6e] transition-colors cursor-pointer"
               >
-                Sign In
+                Create an account
               </Link>
             )}
 
@@ -131,23 +130,31 @@ export default function Navbar({ activePage }: NavbarProps) {
               ))}
             </nav>
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              {isMounted && profile ? (
-                <Link
-                  href="/dashboard"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full text-center py-2 text-sm font-bold text-teal-800 bg-teal-50 rounded-lg"
-                >
-                  Go to Dashboard ({displayName})
-                </Link>
-              ) : (
+              {!isSignInPage ? (
                 <Link
                   href="/signin"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full text-center py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg"
+                  className="w-full text-center py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
                 >
                   Sign In
                 </Link>
+              ) : (
+                <Link
+                  href="/signup"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full text-center py-2 text-sm font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg"
+                >
+                  Create an account
+                </Link>
               )}
+              <Link
+                href="/emergency"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full text-center py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg flex items-center justify-center gap-1.5"
+              >
+                <span>✱</span>
+                <span>Emergency Access</span>
+              </Link>
             </div>
           </div>
         )}

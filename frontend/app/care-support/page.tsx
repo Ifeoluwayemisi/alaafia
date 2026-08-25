@@ -65,8 +65,9 @@ export default function CareSupportPage() {
 
   useEffect(() => {
     try {
-      if (userProfile?.firstName) {
-        setWemaAccountName(`${userProfile.firstName} ${userProfile.lastName || "Adebayo"}`);
+      if (userProfile) {
+        const name = userProfile.fullName || (userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ""}`.trim() : "");
+        if (name) setWemaAccountName(name);
       }
       const storedBalance = localStorage.getItem("alaafia_care_balance");
       if (storedBalance) setBalance(Number(storedBalance));
@@ -505,7 +506,7 @@ export default function CareSupportPage() {
             <form onSubmit={handleConnectWema} className="space-y-3.5 text-xs">
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Account Name</label>
-                <input type="text" value={wemaAccountName} onChange={(e) => setWemaAccountName(e.target.value)} placeholder="Ruqayah Adebayo" required className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium" />
+                <input type="text" value={wemaAccountName} onChange={(e) => setWemaAccountName(e.target.value)} placeholder="Account Holder Name" required className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium" />
               </div>
               <div>
                 <label className="font-bold text-slate-700 block mb-1">10-Digit Wema Account Number</label>

@@ -35,10 +35,10 @@ import LogoutModal from "@/components/LogoutModal";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
-import { useUserProfile, getStoredUserProfile, StoredUserProfile } from "@/lib/userUtils";
+import { useUserProfile, getStoredUserProfile, StoredUserProfile, formatNameFromEmail } from "@/lib/userUtils";
 
 export default function SettingsPage() {
-  const { profile: storedProfile, initial: userInitial, displayName } = useUserProfile();
+  const { profile: storedProfile, initial: userInitial, displayName, fullName: derivedFullName } = useUserProfile();
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"settings" | "edit-profile">("settings");
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
@@ -48,8 +48,8 @@ export default function SettingsPage() {
   const [toastMsg, setToastMsg] = useState("");
 
   // Profile Form States
-  const [fullName, setFullName] = useState("Ruqayah Adebayo");
-  const [email, setEmail] = useState("ruqayah@email.com");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("+234 801 234 5678");
   const [location, setLocation] = useState("Lagos, Nigeria");
 
@@ -74,25 +74,30 @@ export default function SettingsPage() {
       const profile = getStoredUserProfile();
       if (profile) {
         setUserProfile(profile);
-        const name = profile.firstName
-          ? `${profile.firstName} ${profile.lastName || "Adebayo"}`
-          : profile.fullName || "Ruqayah Adebayo";
-        const em = profile.email || "ruqayah@email.com";
+        let name = profile.fullName;
+        if (!name || (name.includes("Adebayo") && !profile.email?.toLowerCase().includes("adebayo"))) {
+          name = formatNameFromEmail(profile.email).fullName;
+        }
+        const finalName = name || derivedFullName || "User";
+        const em = profile.email || "";
         const ph = profile.phone || "+234 801 234 5678";
         const loc = profile.location || "Lagos, Nigeria";
 
-        setFullName(name);
+        setFullName(finalName);
         setEmail(em);
         setPhone(ph);
         setLocation(loc);
 
-        setEditFullName(name);
+        setEditFullName(finalName);
         setEditEmail(em);
         setEditPhone(ph);
         setEditLocation(loc);
+      } else if (derivedFullName) {
+        setFullName(derivedFullName);
+        setEditFullName(derivedFullName);
       }
     } catch (e) {}
-  }, []);
+  }, [derivedFullName]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);

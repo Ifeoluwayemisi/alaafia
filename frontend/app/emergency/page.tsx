@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Phone,
@@ -47,6 +48,7 @@ const RealMap = dynamic(() => import("@/components/RealMap"), {
 });
 
 export default function EmergencyPage() {
+  const router = useRouter();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 

@@ -1,4 +1,5 @@
 import { api, setToken, clearToken } from "@/lib/api";
+import { formatNameFromEmail } from "@/lib/userUtils";
 
 export interface User {
   id: string | number;
@@ -23,15 +24,27 @@ const TOKEN_KEY = "alaafia_token";
 function persistAuth(user: User, token: string) {
   if (typeof window === "undefined") return;
 
-  const names = (user.name || "").trim().split(" ");
-  const firstName = user.firstName || names[0] || "Olamide";
-  const lastName = user.lastName || names.slice(1).join(" ") || "Olanrewaju";
+  let firstName = user.firstName || "";
+  let lastName = user.lastName || "";
+  let fullName = user.name || "";
+
+  if (!fullName || fullName.trim().length === 0 || fullName.toLowerCase() === "user") {
+    const parsed = formatNameFromEmail(user.email);
+    firstName = parsed.firstName;
+    lastName = parsed.lastName;
+    fullName = parsed.fullName;
+  } else {
+    const names = fullName.trim().split(" ");
+    if (!firstName) firstName = names[0] || "User";
+    if (!lastName) lastName = names.slice(1).join(" ") || "";
+  }
 
   const enrichedUser = {
     ...user,
     firstName,
     lastName,
-    fullName: user.name || `${firstName} ${lastName}`,
+    fullName,
+    name: fullName,
   };
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(enrichedUser));
@@ -82,11 +95,13 @@ export const authService = {
       if (err.isNetworkError || err.code === "NETWORK_ERROR") {
         // Fallback local session for seamless onboarding
         const names = data.name.trim().split(" ");
+        const firstName = names[0] || "User";
+        const lastName = names.slice(1).join(" ") || "";
         const fallbackUser: User = {
           id: `local-${Date.now()}`,
-          name: data.name,
-          firstName: names[0] || "User",
-          lastName: names.slice(1).join(" ") || "",
+          name: data.name.trim(),
+          firstName,
+          lastName,
           email: data.email,
           phone: data.phone || "+234 801 234 5678",
           role: "PATIENT",
@@ -144,20 +159,14 @@ export const authService = {
       return result;
     } catch (err: any) {
       if (err.isNetworkError || err.code === "NETWORK_ERROR") {
-        // Fallback login when backend is not actively running
-        const rawName = email.split("@")[0].replace(/[^a-zA-Z]/g, " ").trim();
-        const formattedFirst = rawName
-          ? rawName.split(" ")[0].charAt(0).toUpperCase() + rawName.split(" ")[0].slice(1)
-          : "Ruqayah";
-        const formattedLast = rawName.split(" ")[1]
-          ? rawName.split(" ")[1].charAt(0).toUpperCase() + rawName.split(" ")[1].slice(1)
-          : "Adebayo";
+        // Fallback login dynamically deriving the user's name from their email address
+        const { firstName, lastName, fullName } = formatNameFromEmail(email);
 
         const fallbackUser: User = {
           id: `patient-${Date.now()}`,
-          name: `${formattedFirst} ${formattedLast}`,
-          firstName: formattedFirst,
-          lastName: formattedLast,
+          name: fullName,
+          firstName: firstName,
+          lastName: lastName,
           email: email,
           phone: "+234 801 234 5678",
           role: "PATIENT",
@@ -171,13 +180,16 @@ export const authService = {
     }
   },
 
-  async quickDemoLogin(preset?: { name: string; email: string }): Promise<AuthResult> {
+  async quickDemoLogin(preset?: { name?: string; email?: string }): Promise<AuthResult> {
+    const targetEmail = preset?.email || "olamideolanrewaju129@gmail.com";
+    const { firstName, lastName, fullName } = formatNameFromEmail(targetEmail);
+
     const demoUser: User = {
       id: "demo-patient-001",
-      name: preset?.name || "Olamide Olanrewaju",
-      firstName: preset?.name?.split(" ")[0] || "Olamide",
-      lastName: preset?.name?.split(" ")[1] || "Olanrewaju",
-      email: preset?.email || "olamideolanrewaju129@gmail.com",
+      name: preset?.name || fullName,
+      firstName: preset?.name ? preset.name.split(" ")[0] : firstName,
+      lastName: preset?.name ? preset.name.split(" ").slice(1).join(" ") : lastName,
+      email: targetEmail,
       phone: "+234 801 234 5678",
       role: "PATIENT",
       emailVerified: true,
