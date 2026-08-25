@@ -65,27 +65,28 @@ export const authService = {
   },
 
   /**
-   * Check if the user's email has been confirmed via Supabase.
-   * Called on the /verify page to detect if the user already clicked the confirmation link.
+   * Verify email with 6-digit OTP code via Supabase Auth.
+   * Signs the user out immediately after verification so they
+   * must go through the signin step (SIGNUP → VERIFY → SIGN IN → DASHBOARD).
    */
-  async verify(email: string) {
+  async verify(email: string, token: string) {
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
 
-    if (session) {
-      localStorage.setItem("alaafia_user", JSON.stringify({
-        id: session.user.id,
-        firstName: session.user.user_metadata?.firstName || "",
-        lastName: session.user.user_metadata?.lastName || "",
-        email: session.user.email || email,
-        isVerified: true,
-        isNewUser: true,
-      }));
-      localStorage.setItem("alaafia_is_new_user", "true");
-      return { success: true, message: "Email verified!", confirmed: true };
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "signup",
+    });
+
+    if (error) {
+      throw new Error(error.message);
     }
 
-    return { success: true, message: "Awaiting email confirmation.", confirmed: false };
+    // Sign out so the user does not bypass the signin step.
+    // verifyOtp may create a session; we intentionally discard it.
+    await supabase.auth.signOut();
+
+    return { success: true, message: "Email verified successfully!" };
   },
 
   /**

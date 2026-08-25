@@ -80,16 +80,6 @@ export default function ConsultationPage() {
   const [selectedHospitalDirections, setSelectedHospitalDirections] = useState<any | null>(null);
 
   useEffect(() => {
-    // Return to landing page on refresh/reload
-    if (typeof window !== "undefined") {
-      const navEntries = performance.getEntriesByType("navigation");
-      const isReload = navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === "reload";
-      if (isReload) {
-        window.location.href = "/";
-        return;
-      }
-    }
-
     try {
       const stored = localStorage.getItem("alaafia_user");
       if (stored) {

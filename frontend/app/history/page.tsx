@@ -118,16 +118,6 @@ export default function HistoryPage() {
   const [consultationsList, setConsultationsList] = useState<ConsultationHistoryItem[]>([]);
 
   useEffect(() => {
-    // Return to landing page on refresh/reload
-    if (typeof window !== "undefined") {
-      const navEntries = performance.getEntriesByType("navigation");
-      const isReload = navEntries.length > 0 && (navEntries[0] as PerformanceNavigationTiming).type === "reload";
-      if (isReload) {
-        window.location.href = "/";
-        return;
-      }
-    }
-
     try {
       const storedUser = localStorage.getItem("alaafia_user");
       const storedIsNew = localStorage.getItem("alaafia_is_new_user");
