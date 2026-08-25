@@ -166,15 +166,29 @@ class AuthController {
       });
     }
     const verification = await issueVerificationCode(user);
-    return res.json({
-      success: true,
+    const delivery = verification.sent
+      ? "EMAIL"
+      : verification.developmentCode
+        ? "DEVELOPMENT_RESPONSE"
+        : "PENDING_RETRY";
+    return res.status(delivery === "PENDING_RETRY" ? 503 : 200).json({
+      success: delivery !== "PENDING_RETRY",
       data: {
         expiresAt: verification.expiresAt,
+        delivery,
+        ...(delivery === "PENDING_RETRY"
+          ? {
+              note: "Verification email could not be sent right now. Please try again shortly.",
+            }
+          : {}),
         ...(verification.developmentCode
           ? { developmentCode: verification.developmentCode }
           : {}),
       },
-      message: "Verification code sent",
+      message:
+        delivery === "PENDING_RETRY"
+          ? "Code stored but email delivery failed; retry later"
+          : "Verification code sent",
     });
   }
 
