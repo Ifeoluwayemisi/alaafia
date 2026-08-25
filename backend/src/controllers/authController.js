@@ -74,13 +74,23 @@ class AuthController {
       emailVerified: false,
     });
     const verification = await issueVerificationCode(user);
+    const delivery = verification.sent
+      ? "EMAIL"
+      : verification.developmentCode
+        ? "DEVELOPMENT_RESPONSE"
+        : "PENDING_RETRY";
     return res.status(202).json({
       success: true,
       data: {
         user: publicUser(user),
         verification: {
           expiresAt: verification.expiresAt,
-          delivery: verification.sent ? "EMAIL" : "DEVELOPMENT_RESPONSE",
+          delivery,
+          ...(delivery === "PENDING_RETRY"
+            ? {
+                note: "Verification email could not be sent right now. Use POST /api/v1/auth/resend-verification.",
+              }
+            : {}),
           ...(verification.developmentCode
             ? { developmentCode: verification.developmentCode }
             : {}),

@@ -22,6 +22,10 @@ const getTransporter = () => {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === "true",
+    // PaaS containers frequently lack IPv6 egress; without this, Node >=17
+    // resolves SMTP hosts to their AAAA record first and connections die
+    // with ENETUNREACH before falling back to IPv4.
+    family: 4,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -44,20 +48,30 @@ const issueVerificationCode = async (user) => {
   });
 
   const transporter = getTransporter();
+  let sent = false;
   if (transporter) {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: user.email,
-      subject: "Your ALAFIA verification code",
-      text: `Your ALAFIA verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
-      html: `<p>Your ALAFIA verification code is <strong>${code}</strong>.</p><p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
-    });
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: user.email,
+        subject: "Your ALAFIA verification code",
+        text: `Your ALAFIA verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
+        html: `<p>Your ALAFIA verification code is <strong>${code}</strong>.</p><p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
+      });
+      sent = true;
+    } catch (error) {
+      // The account exists and the code is stored; a delivery hiccup must not
+      // surface as a 500 or leak SMTP internals. The client can recover via
+      // POST /api/v1/auth/resend-verification.
+      console.error(`[email] verification code delivery failed code=SMTP_SEND_FAILED`);
+      sent = false;
+    }
   }
 
   return {
     expiresAt,
     developmentCode: process.env.NODE_ENV === "development" ? code : undefined,
-    sent: Boolean(transporter),
+    sent,
   };
 };
 
@@ -67,15 +81,19 @@ const sendWelcomeEmail = async (user) => {
     return { sent: false, reason: "SMTP_NOT_CONFIGURED" };
   }
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: user.email,
-    subject: "Welcome to ALAFIA",
-    text: `Welcome to ALAFIA, ${user.name}! Your email has been verified. ALAFIA helps you understand health urgency and find the right next step.`,
-    html: `<p>Welcome to ALAFIA, ${user.name}!</p><p>Your email has been verified successfully.</p><p>ALAFIA helps you understand health urgency and find the right next step.</p>`,
-  });
-
-  return { sent: true };
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject: "Welcome to ALAFIA",
+      text: `Welcome to ALAFIA, ${user.name}! Your email has been verified. ALAFIA helps you understand health urgency and find the right next step.`,
+      html: `<p>Welcome to ALAFIA, ${user.name}!</p><p>Your email has been verified successfully.</p><p>ALAFIA helps you understand health urgency and find the right next step.</p>`,
+    });
+    return { sent: true };
+  } catch (error) {
+    console.error(`[email] welcome email delivery failed code=SMTP_SEND_FAILED`);
+    return { sent: false, reason: "SMTP_SEND_FAILED" };
+  }
 };
 
 const verifyCode = async (userId, code) => {
