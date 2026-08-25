@@ -32,11 +32,12 @@ import EmergencyModal from "@/components/EmergencyModal";
 import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useUserProfile } from "@/lib/userUtils";
 
 export default function DashboardPage() {
   // Automatically detected state: New User vs Returning/Existing User
   const [isNewUser, setIsNewUser] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { profile: userProfile, initial: userInitial, displayName } = useUserProfile();
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -74,19 +75,14 @@ export default function DashboardPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const isNewQuery = urlParams.get("newUser");
       const storedIsNew = localStorage.getItem("alaafia_is_new_user");
-      const storedUser = localStorage.getItem("alaafia_user");
       const storedConsultations = JSON.parse(localStorage.getItem("alaafia_saved_consultations") || "[]");
 
       if (Array.isArray(storedConsultations) && storedConsultations.length > 0) {
         setSavedConsultations(storedConsultations);
       }
 
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        setUserProfile(parsed);
-
-        // Automatic detection
-        if (isNewQuery === "true" || storedIsNew === "true" || parsed.isNewUser === true) {
+      if (userProfile) {
+        if (isNewQuery === "true" || storedIsNew === "true" || userProfile.isNewUser === true) {
           setIsNewUser(true);
         } else {
           setIsNewUser(false);
@@ -110,19 +106,6 @@ export default function DashboardPage() {
     if (hour < 18) return "Good afternoon";
     return "Good evening";
   };
-
-  // Dynamic user display name & avatar initial
-  const displayName = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
-    : userProfile?.email
-    ? userProfile.email.split("@")[0].charAt(0).toUpperCase() + userProfile.email.split("@")[0].slice(1)
-    : "Ruqayah";
-
-  const userInitial = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase()
-    : userProfile?.email
-    ? userProfile.email.charAt(0).toUpperCase()
-    : "R";
 
   // Default user consultation history data (for existing user view)
   const defaultConsultations = [
@@ -255,20 +238,21 @@ export default function DashboardPage() {
             {/* User Avatar linking to Settings */}
             <Link
               href="/settings"
+              suppressHydrationWarning
               title={`Logged in as ${displayName} — Open Settings`}
               className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-teal-400 transition-all cursor-pointer"
             >
-              {userInitial}
+              <span suppressHydrationWarning>{userInitial}</span>
             </Link>
           </div>
         </header>
 
         {/* Main Dashboard Grid */}
-        <main className="p-6 sm:p-8 space-y-8 max-w-6xl mx-auto w-full animate-fade-in">
+        <main className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto w-full animate-fade-in pb-24 sm:pb-8">
           {/* Greeting Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h2 suppressHydrationWarning className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 {getGreeting()}, {displayName}.
               </h2>
               <p className="text-slate-500 text-sm">
@@ -492,14 +476,13 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsEmergencyModalOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-xs transition-all cursor-pointer"
+                  <Link
+                    href="/emergency"
+                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-xs transition-all cursor-pointer text-center"
                   >
                     <Phone className="w-3.5 h-3.5" />
                     <span>Quick Emergency (112)</span>
-                  </button>
+                  </Link>
                   <Link
                     href="/emergency"
                     className="px-3 py-2.5 bg-white border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors"

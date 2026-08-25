@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import {
   Mic,
   MicOff,
@@ -9,10 +8,11 @@ import {
   RefreshCw,
   AlertCircle,
   Volume2,
-  VolumeX,
   Shield,
   Check,
-  ChevronRight,
+  Edit3,
+  Sparkles,
+  Keyboard,
 } from "lucide-react";
 
 export type ListeningState = "active" | "silent" | "error" | "processing";
@@ -34,13 +34,18 @@ export default function VoiceListeningBox({
   onFinish,
   emergencyMode = false,
   emergencyNumber = "112",
-  defaultText = "I'm experiencing severe chest pain and shortness of breath...",
+  defaultText = "Persistent headache and fever since yesterday evening...",
 }: VoiceListeningBoxProps) {
   const [currentState, setCurrentState] = useState<ListeningState>(initialState);
   const [liveTranscript, setLiveTranscript] = useState(defaultText);
-  const [micPermission, setMicPermission] = useState<"prompt" | "granted" | "denied">("prompt");
-  const [speechTimer, setSpeechTimer] = useState<NodeJS.Timeout | null>(null);
+  const [micVolume, setMicVolume] = useState<number[]>([14, 28, 18, 42, 26, 36, 22, 16, 30, 18]);
+  const [isTypingFallback, setIsTypingFallback] = useState(false);
+  const [manualText, setManualText] = useState(defaultText);
+
   const recognitionRef = useRef<any>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const waveAnimIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync state changes upward
   const changeState = (newState: ListeningState) => {
@@ -48,221 +53,219 @@ export default function VoiceListeningBox({
     if (onStateChange) onStateChange(newState);
   };
 
-  // Web Speech API / Real Microphone Integration
-  const startRealListening = async () => {
-    try {
-      // Check browser microphone permissions
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          setMicPermission("granted");
-          // Stop stream tracks after permission check so speech recognition can use it
-          stream.getTracks().forEach((track) => track.stop());
-        } catch (err: any) {
-          if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-            setMicPermission("denied");
-            changeState("error");
-            return;
-          }
+  // Reset and restart silence timer (e.g. after 8 seconds of silence, transition to silent state)
+  const resetSilenceTimer = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      setCurrentState((prev) => {
+        if (prev === "active") {
+          if (onStateChange) onStateChange("silent");
+          return "silent";
         }
-      }
+        return prev;
+      });
+    }, 8000);
+  };
 
-      // Check SpeechRecognition support
+  // Start animated wave bars (combining voice dynamics with responsive micro-animations)
+  const startWaveAnimation = () => {
+    if (waveAnimIntervalRef.current) clearInterval(waveAnimIntervalRef.current);
+    waveAnimIntervalRef.current = setInterval(() => {
+      setMicVolume((prev) =>
+        prev.map(() => Math.floor(Math.random() * 32) + 10)
+      );
+    }, 120);
+  };
+
+  const stopWaveAnimation = () => {
+    if (waveAnimIntervalRef.current) {
+      clearInterval(waveAnimIntervalRef.current);
+      waveAnimIntervalRef.current = null;
+    }
+  };
+
+  // Safe Speech & Microphone Listening
+  const startListening = (clearText = false) => {
+    changeState("active");
+    startWaveAnimation();
+    resetSilenceTimer();
+
+    if (clearText) {
+      setLiveTranscript("Listening to your voice...");
+    }
+
+    // Try requesting real microphone stream in background
+    if (typeof window !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true })
+        .then((stream) => {
+          mediaStreamRef.current = stream;
+        })
+        .catch(() => {
+          // Keep active state without crashing
+        });
+    }
+
+    // Initialize Web Speech API
+    try {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
       if (SpeechRecognition) {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {}
+        }
+
         const recognition = new SpeechRecognition();
         recognitionRef.current = recognition;
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = "en-NG"; // Supports Nigerian English / English
+        recognition.lang = "en-NG"; // Supports Nigerian English accents
 
         recognition.onstart = () => {
           changeState("active");
+          startWaveAnimation();
+          resetSilenceTimer();
         };
 
         recognition.onresult = (event: any) => {
+          resetSilenceTimer();
+          changeState("active");
+
           let interimTranscript = "";
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             interimTranscript += event.results[i][0].transcript;
           }
+
           if (interimTranscript.trim()) {
             setLiveTranscript(interimTranscript);
+            setManualText(interimTranscript);
             if (onTranscriptChange) onTranscriptChange(interimTranscript);
           }
         };
 
         recognition.onerror = (event: any) => {
-          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-            changeState("error");
-          } else if (event.error === "no-speech") {
+          if (event.error === "no-speech") {
             changeState("silent");
+            stopWaveAnimation();
           } else if (event.error === "network") {
             changeState("processing");
           }
+          // Do not drop into hard error on benign speech glitches
         };
 
         recognition.onend = () => {
-          // If ended without speech
-          if (!liveTranscript) {
-            changeState("silent");
-          }
+          // If ended without transcript after timer
         };
 
-        recognition.start();
-      } else {
-        // Fallback for browsers without speech recognition: active simulated typing stream
-        changeState("active");
+        try {
+          recognition.start();
+        } catch (e) {}
       }
-    } catch (e) {
-      changeState("active");
+    } catch (e) {}
+  };
+
+  // Cleanup on unmount
+  const cleanupAudio = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    stopWaveAnimation();
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (e) {}
     }
   };
 
   useEffect(() => {
-    if (initialState === "active") {
-      startRealListening();
-    }
+    startListening(false);
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {}
-      }
+      cleanupAudio();
     };
   }, []);
 
   const handleTryAgain = () => {
-    setLiveTranscript("");
-    changeState("active");
-    startRealListening();
+    setIsTypingFallback(false);
+    startListening(true);
   };
 
-  const handleRequestMicAccess = async () => {
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        setMicPermission("granted");
-        handleTryAgain();
-      } else {
-        handleTryAgain();
-      }
-    } catch (e) {
-      changeState("error");
+  const handleGrantMicClick = () => {
+    setIsTypingFallback(false);
+    startListening(true);
+  };
+
+  const handleApplyManualText = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualText.trim()) {
+      setLiveTranscript(manualText.trim());
+      if (onTranscriptChange) onTranscriptChange(manualText.trim());
+      setIsTypingFallback(false);
+      changeState("active");
+      startWaveAnimation();
+      resetSilenceTimer();
     }
   };
 
   return (
     <div className="w-full space-y-4">
-      {/* State Switcher Tabs (For easy manual testing of all 4 states) */}
-      <div className="flex items-center justify-center gap-1.5 flex-wrap text-[11px] bg-slate-100 p-1 rounded-xl max-w-md mx-auto">
-        <button
-          type="button"
-          onClick={() => {
-            changeState("active");
-            if (!liveTranscript) setLiveTranscript(defaultText);
-          }}
-          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-            currentState === "active"
-              ? "bg-white text-[#006666] shadow-xs"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          ● Active
-        </button>
-        <button
-          type="button"
-          onClick={() => changeState("silent")}
-          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-            currentState === "silent"
-              ? "bg-white text-slate-800 shadow-xs"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          ● Silent
-        </button>
-        <button
-          type="button"
-          onClick={() => changeState("error")}
-          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-            currentState === "error"
-              ? "bg-white text-red-600 shadow-xs"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          ● Error (No Mic)
-        </button>
-        <button
-          type="button"
-          onClick={() => changeState("processing")}
-          className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-            currentState === "processing"
-              ? "bg-white text-teal-600 shadow-xs"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          ● Processing
-        </button>
-      </div>
-
       {/* ========================================================================= */}
-      {/* 4 FIGMA STATE VARIANTS                                                    */}
-      {/* ========================================================================= */}
-
-      {/* ------------------------------------------------------------------------- */}
       {/* 1. STATE: ACTIVE (Live Transcribing with Audio Waves)                     */}
-      {/* ------------------------------------------------------------------------- */}
+      {/* ========================================================================= */}
       {currentState === "active" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 relative overflow-hidden animate-in fade-in duration-200">
-          {/* Top Pill Badge */}
+          {/* Top Status Header */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-100 text-[#006666] text-[11px] font-bold tracking-wide uppercase">
               <span className="w-2 h-2 rounded-full bg-[#006666] animate-ping" />
-              <span>State: Active</span>
+              <span>Live Listening Active</span>
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">Live audio feed</span>
+            <span className="text-[11px] text-slate-400 font-medium">Speak in your own words</span>
           </div>
 
-          {/* Animated Dynamic Waveform Bars */}
+          {/* Dynamic Waveform Bars (Fluctuating with voice) */}
           <div className="flex items-center justify-center gap-1.5 h-12 py-1">
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.3s] h-4" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.15s] h-8" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.4s] h-5" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.2s] h-11" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.35s] h-7" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.1s] h-10" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.25s] h-8" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.45s] h-5" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.18s] h-9" />
-            <span className="w-1 bg-[#006666] rounded-full animate-bounce [animation-delay:-0.3s] h-4" />
+            {micVolume.map((height, i) => (
+              <span
+                key={i}
+                className="w-1.5 bg-[#006666] rounded-full transition-all duration-100"
+                style={{ height: `${height}px` }}
+              />
+            ))}
           </div>
 
-          {/* Live Transcript Quote (Matching Figma) */}
+          {/* Live Transcript Display */}
           <div className="p-5 sm:p-6 bg-teal-50/50 rounded-2xl border border-teal-100 text-center min-h-[90px] flex items-center justify-center">
             <p className="text-base sm:text-lg font-bold text-[#005c6e] italic leading-relaxed max-w-lg mx-auto">
-              "{liveTranscript || defaultText}"
+              "{liveTranscript || "Tell Alaafia what you are experiencing..."}"
             </p>
           </div>
         </div>
       )}
 
-      {/* ------------------------------------------------------------------------- */}
-      {/* 2. STATE: SILENT (No speech heard / Try Again button)                     */}
-      {/* ------------------------------------------------------------------------- */}
+      {/* ========================================================================= */}
+      {/* 2. STATE: SILENT (No speech detected / Try Again prompt)                  */}
+      {/* ========================================================================= */}
       {currentState === "silent" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 relative overflow-hidden text-center animate-in fade-in duration-200">
-          {/* Top Pill Badge */}
+          {/* Top Status Header */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold tracking-wide uppercase">
-              <span>State: Silent</span>
+              <span>No Audio Detected</span>
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">No audio detected</span>
+            <span className="text-[11px] text-slate-400 font-medium">Ready for your voice</span>
           </div>
 
-          {/* Flat Horizontal Sound Line (Matching Figma) */}
+          {/* Flat Horizontal Sound Line */}
           <div className="py-6 flex items-center justify-center">
-            <div className="w-48 h-0.5 bg-slate-300 rounded-full" />
+            <div className="w-48 h-0.5 bg-slate-300 rounded-full animate-pulse" />
           </div>
 
           {/* Subtext */}
@@ -272,7 +275,7 @@ export default function VoiceListeningBox({
             </p>
           </div>
 
-          {/* Action: TRY AGAIN Button (Matching Figma) */}
+          {/* Action: TRY AGAIN Button */}
           <div className="pt-2">
             <button
               type="button"
@@ -286,73 +289,111 @@ export default function VoiceListeningBox({
         </div>
       )}
 
-      {/* ------------------------------------------------------------------------- */}
+      {/* ========================================================================= */}
       {/* 3. STATE: ERROR (Microphone Permission Denied / Blocked)                  */}
-      {/* ------------------------------------------------------------------------- */}
+      {/* ========================================================================= */}
       {currentState === "error" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-red-200 shadow-sm space-y-5 relative overflow-hidden text-center animate-in fade-in duration-200">
-          {/* Top Pill Badge */}
+          {/* Top Status Header */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold tracking-wide uppercase">
               <AlertCircle className="w-3 h-3 text-red-600" />
-              <span>State: Error</span>
+              <span>Microphone Access Blocked</span>
             </span>
-            <span className="text-[11px] text-red-500 font-medium">Access blocked</span>
+            <span className="text-[11px] text-red-500 font-medium">Permission needed</span>
           </div>
 
-          {/* Slashed Red Mic Icon Badge (Matching Figma) */}
+          {/* Slashed Red Mic Icon Badge */}
           <div className="mx-auto w-14 h-14 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shadow-xs">
             <MicOff className="w-7 h-7" />
           </div>
 
-          {/* Headline & Subtext (Matching Figma) */}
+          {/* Headline & Subtext */}
           <div className="space-y-1 max-w-sm mx-auto">
             <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
               We can't access your microphone.
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Please enable permissions in your browser settings or proceed to manual input.
+              Please click below to start speaking or switch to typing your symptoms.
             </p>
           </div>
 
-          {/* Dual Action Buttons (Enable microphone + CALL 112 Matching Figma) */}
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleRequestMicAccess}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-            >
-              Enable microphone
-            </button>
+          {/* Optional Direct Typing Input in Error Mode */}
+          {isTypingFallback ? (
+            <form onSubmit={handleApplyManualText} className="space-y-3 pt-2 max-w-md mx-auto">
+              <textarea
+                rows={3}
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder="Type your symptoms here (e.g. severe headache and fever since yesterday)..."
+                className="w-full p-3.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#007e88]"
+              />
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#006666] hover:bg-[#004d4d] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  Save & Continue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTypingFallback(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* Dual Action Buttons */
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleGrantMicClick}
+                className="px-4 py-2.5 rounded-xl bg-[#006666] hover:bg-[#004d4d] text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+              >
+                Grant Microphone Permission
+              </button>
 
-            <a
-              href={`tel:${emergencyNumber}`}
-              className="px-5 py-2.5 rounded-xl bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>✱</span>
-              <span>CALL {emergencyNumber}</span>
-            </a>
-          </div>
+              <button
+                type="button"
+                onClick={() => setIsTypingFallback(true)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+              >
+                <Keyboard className="w-3.5 h-3.5 text-slate-500" />
+                <span>Type symptoms instead</span>
+              </button>
+
+              {emergencyMode && (
+                <a
+                  href={`tel:${emergencyNumber}`}
+                  className="px-5 py-2.5 rounded-xl bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs font-bold shadow-xs transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>✱</span>
+                  <span>CALL {emergencyNumber}</span>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ------------------------------------------------------------------------- */}
-      {/* 4. STATE: PROCESSING (Slow connection / Analyzing audio)                  */}
-      {/* ------------------------------------------------------------------------- */}
+      {/* ========================================================================= */}
+      {/* 4. STATE: PROCESSING (Analyzing audio / Structuring clinical triage)      */}
+      {/* ========================================================================= */}
       {currentState === "processing" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-teal-200 shadow-sm space-y-6 relative overflow-hidden text-center animate-in fade-in duration-200">
-          {/* Top Pill Badge */}
+          {/* Top Status Header */}
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-[#006666] text-[11px] font-bold tracking-wide uppercase">
               <RefreshCw className="w-3 h-3 animate-spin text-[#006666]" />
-              <span>State: Processing</span>
+              <span>Analyzing Speech</span>
             </span>
-            <span className="text-[11px] text-slate-400 font-medium">Structuring triage</span>
+            <span className="text-[11px] text-slate-400 font-medium">Structuring clinical triage</span>
           </div>
 
-          {/* Circular Radar / Shield Pulse (Matching Figma) */}
+          {/* Circular Radar / Shield Pulse */}
           <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-            {/* Spinning Radar Track */}
             <div className="w-20 h-20 rounded-full border-4 border-teal-100 border-t-[#006666] animate-spin" />
             <div className="absolute w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center shadow-xs">
               <Shield className="w-6 h-6 text-[#006666]" />
@@ -362,10 +403,10 @@ export default function VoiceListeningBox({
           {/* Processing Subtext */}
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-slate-800">
-              Processing your speech...
+              Processing your symptoms...
             </h4>
             <p className="text-xs text-slate-500">
-              Adapting to network speed and analyzing clinical context.
+              Alaafia AI is structuring your words for clinical review.
             </p>
           </div>
         </div>

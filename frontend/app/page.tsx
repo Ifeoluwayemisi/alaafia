@@ -144,13 +144,13 @@ export default function Home() {
                 If it's a life-threatening emergency, don't wait.
               </span>
             </div>
-            <button
-              onClick={() => setIsEmergencyModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-5 py-2 rounded-full shadow-sm hover:shadow transition-all shrink-0 cursor-pointer"
+            <Link
+              href="/emergency"
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-sm font-bold px-5 py-2.5 rounded-full shadow-sm hover:shadow transition-all shrink-0 cursor-pointer"
             >
               <Phone className="w-4 h-4" />
               <span>Get emergency help now</span>
-            </button>
+            </Link>
           </div>
         </section>
 

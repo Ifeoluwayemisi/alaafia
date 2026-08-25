@@ -134,6 +134,11 @@ export default function Footer() {
                     </Link>
                   </li>
                   <li>
+                    <Link href="/guidance" className="hover:text-[#005c6e] hover:underline transition-colors">
+                      Health Guidance & Tips
+                    </Link>
+                  </li>
+                  <li>
                     <Link href="/care-support" className="hover:text-[#005c6e] hover:underline transition-colors">
                       Care Support Fund
                     </Link>

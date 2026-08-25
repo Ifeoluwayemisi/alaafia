@@ -35,9 +35,11 @@ import LogoutModal from "@/components/LogoutModal";
 import DeleteAccountModal from "@/components/DeleteAccountModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useUserProfile, getStoredUserProfile, StoredUserProfile } from "@/lib/userUtils";
 
 export default function SettingsPage() {
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { profile: storedProfile, initial: userInitial, displayName } = useUserProfile();
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"settings" | "edit-profile">("settings");
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
@@ -45,19 +47,19 @@ export default function SettingsPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  // Form State for Profile
+  // Profile Form States
   const [fullName, setFullName] = useState("Ruqayah Adebayo");
   const [email, setEmail] = useState("ruqayah@email.com");
   const [phone, setPhone] = useState("+234 801 234 5678");
   const [location, setLocation] = useState("Lagos, Nigeria");
 
-  // Temporary edit form state
-  const [editFullName, setEditFullName] = useState("Ruqayah Adebayo");
-  const [editEmail, setEditEmail] = useState("ruqayah@email.com");
-  const [editPhone, setEditPhone] = useState("+234 801 234 5678");
-  const [editLocation, setEditLocation] = useState("Lagos, Nigeria");
+  // Edit Mode States
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLocation, setEditLocation] = useState("");
 
-  // Notifications Toggles
+  // Preferences
   const [consultationReminders, setConsultationReminders] = useState(true);
   const [followUpReminders, setFollowUpReminders] = useState(true);
   const [emergencyAlerts, setEmergencyAlerts] = useState(true);
@@ -69,16 +71,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("alaafia_user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUserProfile(parsed);
-        const name = parsed.firstName
-          ? `${parsed.firstName} ${parsed.lastName || "Adebayo"}`
-          : "Ruqayah Adebayo";
-        const em = parsed.email || "ruqayah@email.com";
-        const ph = parsed.phone || "+234 801 234 5678";
-        const loc = parsed.location || "Lagos, Nigeria";
+      const profile = getStoredUserProfile();
+      if (profile) {
+        setUserProfile(profile);
+        const name = profile.firstName
+          ? `${profile.firstName} ${profile.lastName || "Adebayo"}`
+          : profile.fullName || "Ruqayah Adebayo";
+        const em = profile.email || "ruqayah@email.com";
+        const ph = profile.phone || "+234 801 234 5678";
+        const loc = profile.location || "Lagos, Nigeria";
 
         setFullName(name);
         setEmail(em);
@@ -92,8 +93,6 @@ export default function SettingsPage() {
       }
     } catch (e) {}
   }, []);
-
-  const userInitial = fullName ? fullName.charAt(0).toUpperCase() : "R";
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -116,10 +115,11 @@ export default function SettingsPage() {
       setPhone(editPhone);
       setLocation(editLocation);
 
-      const updatedUser = {
+      const updatedUser: StoredUserProfile = {
         ...userProfile,
         firstName: editFullName.split(" ")[0] || editFullName,
         lastName: editFullName.split(" ").slice(1).join(" ") || "",
+        fullName: editFullName,
         email: editEmail,
         phone: editPhone,
         location: editLocation,
@@ -128,6 +128,11 @@ export default function SettingsPage() {
       setUserProfile(updatedUser);
       setViewMode("settings");
       showToast("Profile details updated successfully!");
+
+      // Dispatch event to sync all other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
     } catch (err) {
       console.error(err);
     }
@@ -346,24 +351,25 @@ export default function SettingsPage() {
                   <Bell className="w-5 h-5" />
                 </button>
                 <div
+                  suppressHydrationWarning
                   title={fullName}
                   className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
                 >
-                  {userInitial}
+                  <span suppressHydrationWarning>{userInitial}</span>
                 </div>
               </div>
             </header>
 
             {/* Main Settings Grid */}
-            <main className="p-6 sm:p-8 space-y-6 max-w-5xl mx-auto w-full flex-1 animate-in fade-in duration-200">
+            <main className="p-4 sm:p-8 space-y-6 max-w-5xl mx-auto w-full flex-1 animate-in fade-in duration-200 pb-24 sm:pb-8">
               {/* Top Profile Card */}
               <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-teal-700 via-[#006666] to-teal-500 text-white font-bold text-2xl flex items-center justify-center shadow-md border-2 border-white shrink-0">
-                    {userInitial}
+                  <div suppressHydrationWarning className="w-16 h-16 rounded-full bg-gradient-to-tr from-teal-700 via-[#006666] to-teal-500 text-white font-bold text-2xl flex items-center justify-center shadow-md border-2 border-white shrink-0">
+                    <span suppressHydrationWarning>{userInitial}</span>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                    <h3 suppressHydrationWarning className="text-lg sm:text-xl font-extrabold text-slate-900">
                       {fullName}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">

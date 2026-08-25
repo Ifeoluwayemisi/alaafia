@@ -15,12 +15,14 @@ import {
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import EmergencyModal from "@/components/EmergencyModal";
+import { useUserProfile } from "@/lib/userUtils";
 
 export interface ContactItem {
   id: string | number;
   name: string;
   relation: string;
   phone: string;
+  email?: string;
   initials: string;
   color: string;
   allowRequests?: boolean;
@@ -33,11 +35,12 @@ export default function AddContactPage() {
   const [fullName, setFullName] = useState("");
   const [countryCode, setCountryCode] = useState("+234");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
   const [relationship, setRelationship] = useState("");
   const [allowRequests, setAllowRequests] = useState(true);
 
   // User & Contact data
-  const [userInitial, setUserInitial] = useState("R");
+  const { profile: userProfile, initial: userInitial, displayName } = useUserProfile();
   const [existingContacts, setExistingContacts] = useState<ContactItem[]>([]);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -47,14 +50,6 @@ export default function AddContactPage() {
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("alaafia_user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser?.firstName) {
-          setUserInitial(parsedUser.firstName.charAt(0).toUpperCase());
-        }
-      }
-
       const storedContacts = localStorage.getItem("alaafia_trusted_contacts");
       if (storedContacts) {
         const parsed = JSON.parse(storedContacts);
@@ -119,6 +114,7 @@ export default function AddContactPage() {
       name: fullName.trim(),
       relation: relationship,
       phone: formattedPhone,
+      email: emailAddress.trim() || undefined,
       initials: initials || "C",
       color,
       allowRequests,
@@ -181,10 +177,11 @@ export default function AddContactPage() {
 
             <Link
               href="/settings"
-              title="View Profile Settings"
-              className="w-9 h-9 rounded-full bg-amber-400 text-slate-900 font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-amber-500 transition-all"
+              suppressHydrationWarning
+              title={`Logged in as ${displayName} — View Profile Settings`}
+              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-teal-400 transition-all cursor-pointer"
             >
-              {userInitial}
+              <span suppressHydrationWarning>{userInitial}</span>
             </Link>
           </div>
         </header>
@@ -198,7 +195,7 @@ export default function AddContactPage() {
         )}
 
         {/* Main Content Area */}
-        <main className="p-5 sm:p-8 lg:p-10 max-w-6xl mx-auto w-full space-y-6 animate-fade-in">
+        <main className="p-4 sm:p-8 lg:p-10 max-w-6xl mx-auto w-full space-y-6 animate-fade-in pb-24 sm:pb-8">
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-xs text-slate-500">
             <Link
@@ -278,7 +275,7 @@ export default function AddContactPage() {
                 {/* Phone Number */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-700">
-                    Phone Number
+                    Phone Number (for SMS & Emergency Alerts)
                   </label>
                   <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#007e88] focus-within:border-transparent transition-all">
                     <div className="bg-slate-50 border-r border-slate-200 px-3.5 flex items-center text-xs font-bold text-slate-700 select-none">
@@ -294,6 +291,22 @@ export default function AddContactPage() {
                       className="w-full px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
                     />
                   </div>
+                </div>
+
+                {/* Email Address */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 flex items-center justify-between">
+                    <span>Email Address (for Support Notifications)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g. contact@gmail.com"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    disabled={existingContacts.length >= 4}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#007e88] focus:border-transparent transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
                 </div>
 
                 {/* Relationship */}

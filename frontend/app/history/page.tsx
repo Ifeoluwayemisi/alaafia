@@ -39,16 +39,17 @@ import EmergencyModal from "@/components/EmergencyModal";
 import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useUserProfile } from "@/lib/userUtils";
 
 export interface ConsultationHistoryItem {
-  id: string | number;
+  id: string;
   consultationId: string;
   title: string;
   mainConcern: string;
   duration: string;
   date: string;
   time: string;
-  status: "Completed" | "Needs follow-up" | "In Progress";
+  status: "Completed" | "Needs follow-up" | "Follow-up required" | "Archived";
   keySymptoms: string[];
   severityAssessment: string;
   recommendedCareLevel: string;
@@ -56,56 +57,58 @@ export interface ConsultationHistoryItem {
 }
 
 export default function HistoryPage() {
-  const [userProfile, setUserProfile] = useState<any>(null);
   const [isNewUser, setIsNewUser] = useState(false);
+  const { profile: userProfile, initial: userInitial, displayName } = useUserProfile();
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"All" | "Recent" | "Needs follow-up">("All");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationHistoryItem | null>(null);
   const [toastMessage, setToastMessage] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [consultationsList, setConsultationsList] = useState<ConsultationHistoryItem[]>([]);
 
-  // Default seeded history for existing users
+  // Default seed consultation history data for returning users
   const defaultHistory: ConsultationHistoryItem[] = [
     {
       id: "hist-1",
-      consultationId: "AL-98234-C",
-      title: "PERSISTENT ABDOMINAL PAIN",
-      mainConcern: "Persistent abdominal pain",
-      duration: "3 Days",
-      date: "October 12, 2023",
-      time: "10:30 AM WAT",
-      status: "Completed",
-      keySymptoms: ["Sharp pain lower right", "Nausea", "Mild fever"],
-      severityAssessment: "Moderate to High",
-      recommendedCareLevel: "In-person medical evaluation required within 24 hours.",
+      consultationId: "AL-84920-C",
+      title: "CHEST DISCOMFORT & MILD DYSPNEA",
+      mainConcern: "Left-sided tightness with exertion",
+      duration: "3m 42s",
+      date: "Today",
+      time: "10:14 AM WAT",
+      status: "Follow-up required",
+      keySymptoms: ["Left-sided chest tightness", "Mild shortness of breath", "Fatigue"],
+      severityAssessment: "High / Urgent Care",
+      recommendedCareLevel: "Urgent Clinic Consultation within 24 hours.",
       whatToTellDoctor:
-        "I am experiencing sharp pain in my lower right abdomen that started 3 days ago. It is accompanied by nausea and a mild fever. The pain has been worsening over the last 12 hours.",
+        "I experienced left-sided chest tightness on mild exertion earlier today, accompanied by shortness of breath for about 15 minutes.",
     },
     {
       id: "hist-2",
-      consultationId: "AL-77102-B",
-      title: "HEADACHE & DIZZINESS",
-      mainConcern: "Headache & Dizziness",
-      duration: "3 Days",
-      date: "August 18, 2026",
-      time: "7:42 PM WAT",
+      consultationId: "AL-73194-R",
+      title: "PERSISTENT HEADACHE & EYE STRAIN",
+      mainConcern: "Throbbing frontal headache lasting 3 days",
+      duration: "2m 18s",
+      date: "Feb 21, 2026",
+      time: "03:40 PM WAT",
       status: "Completed",
-      keySymptoms: ["Headache", "Dizziness", "Fatigue"],
+      keySymptoms: ["Frontal throbbing pain", "Photophobia", "Eye strain"],
       severityAssessment: "Routine Care",
-      recommendedCareLevel: "Medical assessment recommended at a primary care clinic.",
+      recommendedCareLevel: "Primary Care / Optometry Check",
       whatToTellDoctor:
-        "I have had a persistent dull headache across my temples for the past 3 days with mild dizziness and fatigue, especially in the evening.",
+        "I have had a frontal throbbing headache for 3 consecutive days that intensifies with screen usage. Paracetamol provides temporary relief.",
     },
     {
       id: "hist-3",
-      consultationId: "AL-66541-A",
-      title: "FEVER & COUGH",
-      mainConcern: "Fever & Dry Cough",
-      duration: "2 Days",
-      date: "July 02, 2026",
-      time: "10:15 AM WAT",
+      consultationId: "AL-62081-N",
+      title: "ACUTE FEBRILE ILLNESS & BODY CHILLS",
+      mainConcern: "High body temperature and dry cough",
+      duration: "4m 05s",
+      date: "Jan 14, 2026",
+      time: "08:15 AM WAT",
       status: "Completed",
       keySymptoms: ["High fever", "Dry cough", "Chills"],
       severityAssessment: "Mild to Moderate",
@@ -115,19 +118,11 @@ export default function HistoryPage() {
     },
   ];
 
-  const [consultationsList, setConsultationsList] = useState<ConsultationHistoryItem[]>([]);
-
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("alaafia_user");
       const storedIsNew = localStorage.getItem("alaafia_is_new_user");
       const storedSaved = localStorage.getItem("alaafia_saved_consultations");
-
-      let parsedUser: any = null;
-      if (storedUser) {
-        parsedUser = JSON.parse(storedUser);
-        setUserProfile(parsedUser);
-      }
+      const profile = userProfile;
 
       let savedItems: any[] = [];
       if (storedSaved) {
@@ -155,7 +150,7 @@ export default function HistoryPage() {
       }));
 
       // Determine if empty state or filled state
-      if (storedIsNew === "true" || (parsedUser && parsedUser.isNewUser && formattedSaved.length === 0)) {
+      if (storedIsNew === "true" || (profile && profile.isNewUser && formattedSaved.length === 0)) {
         setIsNewUser(true);
         setConsultationsList([]);
       } else {
@@ -168,18 +163,6 @@ export default function HistoryPage() {
     }
   }, []);
 
-  const displayName = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
-    : userProfile?.email
-    ? userProfile.email.split("@")[0].charAt(0).toUpperCase() + userProfile.email.split("@")[0].slice(1)
-    : "Alaafia User";
-
-  const userInitial = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase()
-    : userProfile?.email
-    ? userProfile.email.charAt(0).toUpperCase()
-    : "U";
-
   // Filter & Search consultations
   const filteredConsultations = consultationsList
     .filter((item) => {
@@ -191,7 +174,7 @@ export default function HistoryPage() {
         item.date.toLowerCase().includes(searchQuery.toLowerCase());
 
       if (activeFilter === "Recent") return matchesSearch;
-      if (activeFilter === "Needs follow-up") return matchesSearch && item.status === "Needs follow-up";
+      if (activeFilter === "Needs follow-up") return matchesSearch && (item.status === "Needs follow-up" || item.status === "Follow-up required");
       return matchesSearch;
     })
     .sort((a, b) => {
@@ -289,17 +272,19 @@ Alaafia AI Healthcare Navigator
             <button className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all relative">
               <Bell className="w-5 h-5" />
             </button>
-            <div
-              title={displayName}
-              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
+            <Link
+              href="/settings"
+              suppressHydrationWarning
+              title={`Logged in as ${displayName} — Open Settings`}
+              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs cursor-pointer hover:ring-2 hover:ring-teal-400 transition-all"
             >
-              {userInitial}
-            </div>
+              <span suppressHydrationWarning>{userInitial}</span>
+            </Link>
           </div>
         </header>
 
         {/* Main Content Body */}
-        <main className="p-6 sm:p-8 space-y-8 max-w-6xl mx-auto w-full flex-1">
+        <main className="p-4 sm:p-8 space-y-8 max-w-6xl mx-auto w-full flex-1 pb-24 sm:pb-8">
           {/* ========================================================================= */}
           {/* CASE A: EMPTY STATE (NEW USER / NO CONSULTATIONS RECORDED YET)            */}
           {/* ========================================================================= */}

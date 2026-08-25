@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import LogoutModal from "@/components/LogoutModal";
+import { getUserInitial, getStoredUserProfile, StoredUserProfile } from "@/lib/userUtils";
 
 interface SidebarProps {
   activeTab?: "home" | "consultation" | "history" | "care-support" | "followups" | "guidance" | "profile" | "settings";
@@ -24,20 +25,15 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab }: SidebarProps) {
   const pathname = usePathname();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<StoredUserProfile | null>(null);
   const [userInitial, setUserInitial] = useState("R");
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("alaafia_user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUserProfile(parsed);
-        if (parsed.firstName) {
-          setUserInitial(parsed.firstName.charAt(0).toUpperCase());
-        }
-      }
+      const profile = getStoredUserProfile();
+      setUserProfile(profile);
+      setUserInitial(getUserInitial(profile));
     } catch (e) {}
   }, []);
 
@@ -54,6 +50,8 @@ export default function Sidebar({ activeTab }: SidebarProps) {
       ? "care-support"
       : pathname === "/settings"
       ? "settings"
+      : pathname === "/guidance"
+      ? "guidance"
       : pathname === "/about"
       ? "guidance"
       : "home");
@@ -64,7 +62,7 @@ export default function Sidebar({ activeTab }: SidebarProps) {
     { id: "history", label: "History", href: "/history", icon: History },
     { id: "care-support", label: "Care Support", href: "/care-support", icon: Shield },
     { id: "followups", label: "Follow-ups", href: "/history", icon: Calendar },
-    { id: "guidance", label: "Guidance", href: "/about", icon: Compass },
+    { id: "guidance", label: "Guidance", href: "/guidance", icon: Compass },
   ];
 
   return (
@@ -126,23 +124,8 @@ export default function Sidebar({ activeTab }: SidebarProps) {
             <span>New Consultation</span>
           </Link>
 
-          {/* Bottom Action Links (Profile, Settings, Emergency Help) */}
+          {/* Bottom Action Links (Settings, Emergency Help) */}
           <div className="space-y-0.5">
-            {/* Profile with dynamic user initial */}
-            <Link
-              href="/settings"
-              className={`relative w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                currentTab === "profile"
-                  ? "bg-[#e0f7f6] text-[#005c6e] font-bold"
-                  : "text-slate-600 hover:bg-[#e4f5f4] hover:text-slate-900"
-              }`}
-            >
-              <div className="w-5 h-5 rounded-full bg-[#ea580c] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                {userInitial}
-              </div>
-              <span>Profile</span>
-            </Link>
-
             {/* Settings */}
             <Link
               href="/settings"

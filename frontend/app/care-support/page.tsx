@@ -24,24 +24,17 @@ import {
   Trash2,
   Link2,
   Unlink,
+  ChevronRight,
 } from "lucide-react";
 import EmergencyModal from "@/components/EmergencyModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
-
-export interface ContactItem {
-  id: string | number;
-  name: string;
-  relation: string;
-  phone: string;
-  initials: string;
-  color: string;
-}
+import { useUserProfile, ContactItem } from "@/lib/userUtils";
 
 export default function CareSupportPage() {
-  const [userInitial, setUserInitial] = useState("R");
+  const { profile: userProfile, initial: userInitial, displayName } = useUserProfile();
   const [balance, setBalance] = useState(30000);
-  const [goal, setGoal] = useState(50000);
+  const [goal, setGoal] = useState(100000);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
@@ -53,7 +46,7 @@ export default function CareSupportPage() {
   // Wema Bank Connection State
   const [isWemaConnected, setIsWemaConnected] = useState(false);
   const [wemaAccountNumber, setWemaAccountNumber] = useState("");
-  const [wemaAccountName, setWemaAccountName] = useState("Ruqayah Adebayo");
+  const [wemaAccountName, setWemaAccountName] = useState("");
   const [wemaBvnPhone, setWemaBvnPhone] = useState("");
   const [isConnectingWema, setIsConnectingWema] = useState(false);
 
@@ -62,20 +55,18 @@ export default function CareSupportPage() {
   const [customAmount, setCustomAmount] = useState("");
 
   // Trusted Contacts
-  const [contacts, setContacts] = useState<ContactItem[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [newContactName, setNewContactName] = useState("");
   const [newContactRelation, setNewContactRelation] = useState("Sister");
   const [newContactPhone, setNewContactPhone] = useState("");
 
+  // Active Fund Request
+  const [activeFundRequest, setActiveFundRequest] = useState<any | null>(null);
+
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("alaafia_user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser?.firstName) {
-          setUserInitial(parsedUser.firstName.charAt(0).toUpperCase());
-          setWemaAccountName(`${parsedUser.firstName} ${parsedUser.lastName || "Adebayo"}`);
-        }
+      if (userProfile?.firstName) {
+        setWemaAccountName(`${userProfile.firstName} ${userProfile.lastName || "Adebayo"}`);
       }
       const storedBalance = localStorage.getItem("alaafia_care_balance");
       if (storedBalance) setBalance(Number(storedBalance));
@@ -92,8 +83,13 @@ export default function CareSupportPage() {
         const parsed = JSON.parse(storedContacts);
         if (Array.isArray(parsed)) setContacts(parsed);
       }
+
+      const storedReq = localStorage.getItem("alaafia_active_fund_request");
+      if (storedReq) {
+        setActiveFundRequest(JSON.parse(storedReq));
+      }
     } catch {}
-  }, []);
+  }, [userProfile]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -200,7 +196,14 @@ export default function CareSupportPage() {
                 </div>
               </div>
             )}
-            <Link href="/settings" title="View Profile Settings" className="w-9 h-9 rounded-full bg-amber-400 text-slate-900 font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-amber-500 transition-all">{userInitial}</Link>
+            <Link
+              href="/settings"
+              suppressHydrationWarning
+              title={`Logged in as ${displayName} — View Profile Settings`}
+              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-teal-400 transition-all cursor-pointer"
+            >
+              <span suppressHydrationWarning>{userInitial}</span>
+            </Link>
           </div>
         </header>
         {toastMsg && (
@@ -209,7 +212,7 @@ export default function CareSupportPage() {
             <span>{toastMsg}</span>
           </div>
         )}
-        <main className="p-5 sm:p-8 max-w-6xl mx-auto w-full space-y-8 animate-fade-in">
+        <main className="p-4 sm:p-8 max-w-6xl mx-auto w-full space-y-8 animate-fade-in pb-24 sm:pb-8">
           <section className="space-y-1">
             <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">Care Support Safety Net</h2>
             <p className="text-xs sm:text-sm text-slate-500">Prepare for unexpected healthcare expenses, save systematically, and access emergency hospital release funds.</p>
@@ -220,15 +223,64 @@ export default function CareSupportPage() {
                 <Sparkles className="w-3 h-3 text-teal-700" /> Wema ALAT Health Safety Pool
               </span>
               <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">Be prepared for unexpected medical emergencies</h3>
-              <p className="text-xs leading-relaxed text-slate-700 max-w-md">Start building your dedicated healthcare safety net. Small weekly contributions prevent upfront deposit delays at private and emergency hospitals.</p>
-              <button type="button" onClick={() => setIsTopUpModalOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#007e88] hover:bg-[#006b73] active:scale-95 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all cursor-pointer">
-                Top up your emergency fund <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <p className="text-xs leading-relaxed text-slate-700 max-w-md">Start building your dedicated healthcare safety net. Request emergency healthcare support from trusted contacts or deposit funds.</p>
+              <Link href="/care-support/request-fund" className="inline-flex items-center gap-2 rounded-xl bg-[#007e88] hover:bg-[#006b73] active:scale-95 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all cursor-pointer">
+                Request Support Fund <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <div className="hidden sm:flex shrink-0 w-24 h-24 rounded-full border-4 border-white/80 items-center justify-center bg-cyan-100/50 shadow-inner">
               <ShieldCheck className="w-12 h-12 text-[#078696]" />
             </div>
           </section>
+
+          {/* ACTIVE FUND REQUEST STATUS BANNER (If Active) */}
+          {activeFundRequest && (
+            <section className="bg-white border border-teal-200/90 rounded-2xl p-5 shadow-xs space-y-4 animate-scale-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#e0f7f6] text-[#006666] flex items-center justify-center font-bold shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900">Active Healthcare Fund Request</h4>
+                      <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                        {activeFundRequest.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Reason: {activeFundRequest.reason} • {activeFundRequest.recipientNames?.length || 0} Contacts Notified
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/care-support/request-fund?view=status"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#007e88] hover:bg-[#006b73] text-white text-xs font-bold rounded-xl transition-all shadow-2xs"
+                >
+                  <span>View Live Status</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {/* Progress */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>₦{activeFundRequest.amountReceived.toLocaleString()} received</span>
+                  <span className="text-slate-500">Goal: ₦{activeFundRequest.amountRequested.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#007e88] transition-all duration-500 rounded-full"
+                    style={{
+                      width: `${Math.min(100, Math.round((activeFundRequest.amountReceived / activeFundRequest.amountRequested) * 100))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             <div id="balance" className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
               <div className="flex items-start justify-between">
@@ -248,9 +300,9 @@ export default function CareSupportPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-1">
-                <button type="button" onClick={() => setIsTopUpModalOpen(true)} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#007e88] hover:bg-[#006b73] active:scale-95 py-3 text-xs font-bold text-white shadow-xs transition-all cursor-pointer">
-                  <Plus className="w-4 h-4" /> Add to fund
-                </button>
+                <Link href="/care-support/request-fund" className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#007e88] hover:bg-[#006b73] active:scale-95 py-3 text-xs font-bold text-white shadow-xs transition-all cursor-pointer">
+                  <Plus className="w-4 h-4" /> Request Support Fund
+                </Link>
                 <button type="button" onClick={() => setIsManageModalOpen(true)} className="rounded-xl border border-[#008b98] py-3 text-xs font-bold text-[#007e88] hover:bg-cyan-50 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5" /> Manage Settings
                 </button>
@@ -272,14 +324,16 @@ export default function CareSupportPage() {
                   <div className="space-y-3 pt-1 border-t border-slate-100">
                     <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> <span>Connected successfully • Auto-deposit authorized</span></div>
                     <div className="flex justify-between items-center pt-1">
-                      <span className="text-[11px] text-slate-500">{wemaAccountName}</span>
+                      <Link href="/care-support/connect-wema?view=status" className="text-[11px] text-teal-700 hover:underline font-semibold flex items-center gap-1">
+                        {wemaAccountName} • View details
+                      </Link>
                       <button type="button" onClick={handleDisconnectWema} className="text-[11px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer flex items-center gap-1"><Unlink className="w-3 h-3" /> Disconnect</button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3 pt-1 border-t border-slate-100">
                     <p className="text-xs text-slate-600 leading-relaxed">Connect your Wema Bank / ALAT account to enable automatic emergency funding and instant hospital deposits.</p>
-                    <button type="button" onClick={() => setIsWemaModalOpen(true)} className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-[#007e88] hover:bg-[#006b73] active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"><Link2 className="w-3.5 h-3.5" /> <span>Connect your Wema Bank</span></button>
+                    <Link href="/care-support/connect-wema" className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-[#007e88] hover:bg-[#006b73] active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"><Link2 className="w-3.5 h-3.5" /> <span>Connect your Wema Bank</span></Link>
                   </div>
                 )}
               </div>

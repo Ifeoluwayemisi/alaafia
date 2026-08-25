@@ -45,6 +45,7 @@ import LogoutModal from "@/components/LogoutModal";
 import VoiceListeningBox from "@/components/VoiceListeningBox";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
+import { useUserProfile } from "@/lib/userUtils";
 
 // Dynamic import for Leaflet map component (No SSR)
 const RealMap = dynamic(() => import("@/components/RealMap"), {
@@ -58,6 +59,8 @@ const RealMap = dynamic(() => import("@/components/RealMap"), {
 });
 
 export default function ConsultationPage() {
+  const { profile: userProfile, initial: userInitial, displayName } = useUserProfile();
+
   // Stage 1: Speak, Stage 2: Understand, Stage 3: Guide, Stage 4: Connect (Map), Stage 5: Full Found Summary
   const [stage, setStage] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [understandStep, setUnderstandStep] = useState<"review" | "questions">("review"); // Sub-steps in Stage 2
@@ -71,32 +74,12 @@ export default function ConsultationPage() {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
-  const [userProfile, setUserProfile] = useState<any>(null);
 
   // Live Location & Live Hospitals State
   const [liveLocationName, setLiveLocationName] = useState("Lagos, Nigeria");
   const [isLocating, setIsLocating] = useState(true);
   const [liveHospitals, setLiveHospitals] = useState<any[]>([]);
   const [selectedHospitalDirections, setSelectedHospitalDirections] = useState<any | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("alaafia_user");
-      if (stored) {
-        setUserProfile(JSON.parse(stored));
-      }
-    } catch (e) {}
-  }, []);
-
-  const userInitial = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase()
-    : userProfile?.email
-    ? userProfile.email.charAt(0).toUpperCase()
-    : "U";
-
-  const displayName = userProfile?.firstName
-    ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
-    : "Alaafia User";
 
   const handleLocationUpdated = (data: {
     locationName: string;
@@ -337,17 +320,19 @@ Disclaimer: Alaafia provides guidance based on user-reported information and doe
             <button className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
               <HelpCircle className="w-5 h-5" />
             </button>
-            <div
-              title={displayName}
-              className="w-9 h-9 rounded-full bg-amber-500 text-white font-bold flex items-center justify-center text-sm shadow-2xs cursor-pointer hover:opacity-90 transition-opacity"
+            <Link
+              href="/settings"
+              suppressHydrationWarning
+              title={`Logged in as ${displayName} — Open Settings`}
+              className="w-9 h-9 rounded-full bg-[#006666] text-white font-bold flex items-center justify-center text-sm shadow-xs hover:ring-2 hover:ring-teal-400 transition-all cursor-pointer"
             >
-              {userInitial}
-            </div>
+              <span suppressHydrationWarning>{userInitial}</span>
+            </Link>
           </div>
         </header>
 
         {/* Main Content Body */}
-        <main className="p-6 sm:p-8 space-y-8 max-w-7xl mx-auto w-full flex-1">
+        <main className="p-4 sm:p-8 space-y-8 max-w-7xl mx-auto w-full flex-1 pb-24 sm:pb-8">
           {/* Stepper Progress Indicator */}
           <div className="flex items-center justify-center gap-2 sm:gap-3 text-xs font-bold text-slate-400 overflow-x-auto pb-2">
             <button
