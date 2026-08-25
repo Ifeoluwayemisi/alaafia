@@ -108,7 +108,7 @@ export default function EmergencyPage() {
     } else {
       fetchNearbyHospitals(6.5244, 3.3792);
     }
-  }, [router]);
+  }, []);
 
   const emergencyNumbers = [
     {

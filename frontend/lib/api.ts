@@ -2,7 +2,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v
 
 export interface ApiError {
   success: false;
-  error: { code: string; message: string; details: any[] };
+  error: { code: string; message: string; details?: any[] };
+  isNetworkError?: boolean;
 }
 
 export interface ApiSuccess<T = any> {
@@ -19,11 +20,15 @@ function getToken(): string | null {
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("alaafia_token", token);
+  if (typeof window !== "undefined") {
+    localStorage.setItem("alaafia_token", token);
+  }
 }
 
 export function clearToken() {
-  localStorage.removeItem("alaafia_token");
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("alaafia_token");
+  }
 }
 
 export function isLoggedIn(): boolean {
@@ -51,23 +56,48 @@ async function request<T = any>(
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
 
-  const json: ApiResponse<T> = await res.json();
+    let json: ApiResponse<T>;
+    try {
+      json = await res.json();
+    } catch {
+      const statusErr = new Error(`Server responded with status ${res.status}`) as any;
+      statusErr.status = res.status;
+      throw statusErr;
+    }
 
-  if (!json.success) {
-    const err = json as ApiError;
-    const error = new Error(err.error?.message || "Request failed") as any;
-    error.code = err.error?.code;
-    error.status = res.status;
-    error.details = err.error?.details;
-    throw error;
+    if (!json.success) {
+      const err = json as ApiError;
+      const error = new Error(err.error?.message || "Request failed") as any;
+      error.code = err.error?.code;
+      error.status = res.status;
+      error.details = err.error?.details;
+      throw error;
+    }
+
+    return (json as ApiSuccess<T>).data;
+  } catch (err: any) {
+    if (
+      err.name === "TypeError" ||
+      err.message?.includes("fetch") ||
+      err.message?.includes("Failed to fetch") ||
+      err.message?.includes("NetworkError") ||
+      err.code === "ECONNREFUSED"
+    ) {
+      const netError = new Error(
+        "Backend server is offline or unreachable at " + API_BASE
+      ) as any;
+      netError.isNetworkError = true;
+      netError.code = "NETWORK_ERROR";
+      throw netError;
+    }
+    throw err;
   }
-
-  return (json as ApiSuccess<T>).data;
 }
 
 export const api = {
@@ -93,23 +123,37 @@ export const api = {
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
 
-    const json: ApiResponse<T> = await res.json();
+      const json: ApiResponse<T> = await res.json();
 
-    if (!json.success) {
-      const err = json as ApiError;
-      const error = new Error(err.error?.message || "Upload failed") as any;
-      error.code = err.error?.code;
-      error.status = res.status;
-      error.details = err.error?.details;
-      throw error;
+      if (!json.success) {
+        const err = json as ApiError;
+        const error = new Error(err.error?.message || "Upload failed") as any;
+        error.code = err.error?.code;
+        error.status = res.status;
+        error.details = err.error?.details;
+        throw error;
+      }
+
+      return (json as ApiSuccess<T>).data;
+    } catch (err: any) {
+      if (
+        err.name === "TypeError" ||
+        err.message?.includes("fetch") ||
+        err.message?.includes("Failed to fetch")
+      ) {
+        const netError = new Error("Backend server is offline or unreachable") as any;
+        netError.isNetworkError = true;
+        netError.code = "NETWORK_ERROR";
+        throw netError;
+      }
+      throw err;
     }
-
-    return (json as ApiSuccess<T>).data;
   },
 };

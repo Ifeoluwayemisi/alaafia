@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import EmergencyModal from "./EmergencyModal";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User, ArrowRight } from "lucide-react";
+import { useUserProfile } from "@/lib/userUtils";
 
 interface NavbarProps {
   activePage?: "home" | "how-it-works" | "services" | "safety" | "about" | "consultation" | "dashboard";
@@ -12,6 +13,7 @@ interface NavbarProps {
 export default function Navbar({ activePage }: NavbarProps) {
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { profile, initial, displayName, isMounted } = useUserProfile();
 
   const navLinks = [
     { name: "How it works", href: "/how-it-works", id: "how-it-works" },
@@ -22,7 +24,7 @@ export default function Navbar({ activePage }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#e0f7fa]/60 backdrop-blur-md border-b border-teal-100/60 px-4 sm:px-8 py-3.5 transition-all">
+      <header className="sticky top-0 z-40 bg-[#e0f7fa]/80 backdrop-blur-md border-b border-teal-100/60 px-4 sm:px-8 py-3.5 transition-all">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 cursor-pointer group">
@@ -62,12 +64,24 @@ export default function Navbar({ activePage }: NavbarProps) {
 
           {/* Action Buttons (Desktop) */}
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/signin"
-              className="text-sm font-semibold text-slate-600 hover:text-[#005c6e] transition-colors"
-            >
-              Sign In
-            </Link>
+            {isMounted && profile ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 text-[#005c6e] px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs"
+              >
+                <div className="w-5 h-5 rounded-full bg-[#006666] text-white flex items-center justify-center text-[10px] font-extrabold">
+                  {initial}
+                </div>
+                <span>Dashboard ({displayName})</span>
+              </Link>
+            ) : (
+              <Link
+                href="/signin"
+                className="text-sm font-semibold text-slate-600 hover:text-[#005c6e] transition-colors"
+              >
+                Sign In
+              </Link>
+            )}
 
             <Link
               href="/emergency"
@@ -117,13 +131,23 @@ export default function Navbar({ activePage }: NavbarProps) {
               ))}
             </nav>
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              <Link
-                href="/signin"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full text-center py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg"
-              >
-                Sign In
-              </Link>
+              {isMounted && profile ? (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full text-center py-2 text-sm font-bold text-teal-800 bg-teal-50 rounded-lg"
+                >
+                  Go to Dashboard ({displayName})
+                </Link>
+              ) : (
+                <Link
+                  href="/signin"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full text-center py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         )}
