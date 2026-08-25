@@ -29,6 +29,8 @@ import EmergencyModal from "@/components/EmergencyModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
 import { useAuthRedirect } from "@/lib/useAuthRedirect";
+import { api } from "@/lib/api";
+import { getStoredUser } from "@/app/services/authService";
 
 export interface ContactItem {
   id: string | number;
@@ -59,6 +61,9 @@ export default function CareSupportPage() {
   const [wemaBvnPhone, setWemaBvnPhone] = useState("");
   const [isConnectingWema, setIsConnectingWema] = useState(false);
 
+  // Support requests from backend
+  const [supportRequests, setSupportRequests] = useState<any[]>([]);
+
   // Top up amount
   const [selectedTopUp, setSelectedTopUp] = useState(5000);
   const [customAmount, setCustomAmount] = useState("");
@@ -71,14 +76,13 @@ export default function CareSupportPage() {
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("alaafia_user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser?.firstName) {
-          setUserInitial(parsedUser.firstName.charAt(0).toUpperCase());
-          setWemaAccountName(`${parsedUser.firstName} ${parsedUser.lastName || "Adebayo"}`);
-        }
+      const user = getStoredUser();
+      if (user) {
+        const nameParts = (user.name || "").split(" ");
+        setUserInitial(nameParts[0]?.charAt(0).toUpperCase() || "U");
+        setWemaAccountName(user.name || "User");
       }
+
       const storedBalance = localStorage.getItem("alaafia_care_balance");
       if (storedBalance) setBalance(Number(storedBalance));
 
@@ -94,6 +98,10 @@ export default function CareSupportPage() {
         const parsed = JSON.parse(storedContacts);
         if (Array.isArray(parsed)) setContacts(parsed);
       }
+
+      api.get("/support-requests?limit=10").then((res) => {
+        if (res.data?.requests) setSupportRequests(res.data.requests);
+      }).catch(() => {});
     } catch {}
   }, []);
 

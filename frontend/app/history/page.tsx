@@ -40,6 +40,8 @@ import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
 import { useAuthRedirect } from "@/lib/useAuthRedirect";
+import { api } from "@/lib/api";
+import { getStoredUser } from "@/app/services/authService";
 
 export interface ConsultationHistoryItem {
   id: string | number;
@@ -68,115 +70,75 @@ export default function HistoryPage() {
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationHistoryItem | null>(null);
   const [toastMessage, setToastMessage] = useState("");
 
-  // Default seeded history for existing users
-  const defaultHistory: ConsultationHistoryItem[] = [
-    {
-      id: "hist-1",
-      consultationId: "AL-98234-C",
-      title: "PERSISTENT ABDOMINAL PAIN",
-      mainConcern: "Persistent abdominal pain",
-      duration: "3 Days",
-      date: "October 12, 2023",
-      time: "10:30 AM WAT",
-      status: "Completed",
-      keySymptoms: ["Sharp pain lower right", "Nausea", "Mild fever"],
-      severityAssessment: "Moderate to High",
-      recommendedCareLevel: "In-person medical evaluation required within 24 hours.",
-      whatToTellDoctor:
-        "I am experiencing sharp pain in my lower right abdomen that started 3 days ago. It is accompanied by nausea and a mild fever. The pain has been worsening over the last 12 hours.",
-    },
-    {
-      id: "hist-2",
-      consultationId: "AL-77102-B",
-      title: "HEADACHE & DIZZINESS",
-      mainConcern: "Headache & Dizziness",
-      duration: "3 Days",
-      date: "August 18, 2026",
-      time: "7:42 PM WAT",
-      status: "Completed",
-      keySymptoms: ["Headache", "Dizziness", "Fatigue"],
-      severityAssessment: "Routine Care",
-      recommendedCareLevel: "Medical assessment recommended at a primary care clinic.",
-      whatToTellDoctor:
-        "I have had a persistent dull headache across my temples for the past 3 days with mild dizziness and fatigue, especially in the evening.",
-    },
-    {
-      id: "hist-3",
-      consultationId: "AL-66541-A",
-      title: "FEVER & COUGH",
-      mainConcern: "Fever & Dry Cough",
-      duration: "2 Days",
-      date: "July 02, 2026",
-      time: "10:15 AM WAT",
-      status: "Completed",
-      keySymptoms: ["High fever", "Dry cough", "Chills"],
-      severityAssessment: "Mild to Moderate",
-      recommendedCareLevel: "Rest & Hydration with clinic evaluation if breathing changes.",
-      whatToTellDoctor:
-        "I have developed an elevated body temperature and dry persistent cough over the last 48 hours accompanied by body aches and mild chills.",
-    },
-  ];
-
   const [consultationsList, setConsultationsList] = useState<ConsultationHistoryItem[]>([]);
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem("alaafia_user");
-      const storedIsNew = localStorage.getItem("alaafia_is_new_user");
+      const user = getStoredUser();
+      if (user) setUserProfile(user);
+
       const storedSaved = localStorage.getItem("alaafia_saved_consultations");
-
-      let parsedUser: any = null;
-      if (storedUser) {
-        parsedUser = JSON.parse(storedUser);
-        setUserProfile(parsedUser);
-      }
-
       let savedItems: any[] = [];
       if (storedSaved) {
-        try {
-          savedItems = JSON.parse(storedSaved);
-        } catch (e) {}
+        try { savedItems = JSON.parse(storedSaved); } catch (e) {}
       }
 
-      // Convert custom saved items into consultation history objects
       const formattedSaved: ConsultationHistoryItem[] = savedItems.map((item: any, idx: number) => ({
         id: item.id || `saved-${Date.now()}-${idx}`,
-        consultationId: `AL-${Math.floor(10000 + Math.random() * 90000)}-S`,
+        consultationId: item.id || `saved-${idx}`,
         title: item.title?.toUpperCase() || "CONSULTATION SUMMARY",
         mainConcern: item.title || "Health Concern",
         duration: "Recent",
         date: item.date || new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
         time: item.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " WAT",
         status: "Completed",
-        keySymptoms: item.symptoms || ["Reported symptoms", "General discomfort"],
-        severityAssessment: "Routine Care",
+        keySymptoms: item.symptoms || [],
+        severityAssessment: item.severity || "Routine Care",
         recommendedCareLevel: item.outcome || "Primary care clinic evaluation.",
-        whatToTellDoctor:
-          item.transcript ||
-          "I consulted Alaafia regarding these symptoms and am seeking professional medical evaluation.",
+        whatToTellDoctor: item.transcript || item.whatToTellDoctor || "",
       }));
 
-      // Determine if empty state or filled state
-      if (storedIsNew === "true" || (parsedUser && parsedUser.isNewUser && formattedSaved.length === 0)) {
-        setIsNewUser(true);
-        setConsultationsList([]);
-      } else {
-        setIsNewUser(false);
-        const merged = [...formattedSaved, ...defaultHistory];
-        setConsultationsList(merged);
-      }
+      setConsultationsList(formattedSaved);
+
+      api.get("/consultations?limit=50").then((res) => {
+        if (res.data?.consultations?.length > 0) {
+          const remote: ConsultationHistoryItem[] = res.data.consultations.map((c: any) => ({
+            id: c.id,
+            consultationId: c.id.slice(0, 8),
+            title: (c.initialInput || "Consultation").toUpperCase().slice(0, 40),
+            mainConcern: c.initialInput || "Health concern",
+            duration: c.status === "completed" ? "Complete" : "In Progress",
+            date: new Date(c.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+            time: new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " WAT",
+            status: c.TriageResult ? "Completed" : "Needs follow-up",
+            keySymptoms: c.extractedSymptoms?.map((s: any) => s.name || s) || [],
+            severityAssessment: c.TriageResult?.severity || "Pending",
+            recommendedCareLevel: c.TriageResult?.recommendedAction || "Awaiting triage assessment.",
+            whatToTellDoctor: c.initialInput || "",
+          }));
+          setConsultationsList((prev) => {
+            const localIds = new Set(prev.map((p) => p.id));
+            const newRemote = remote.filter((r) => !localIds.has(r.id));
+            return [...newRemote, ...prev];
+          });
+        }
+      }).catch(() => {});
     } catch (e) {
       console.error("Error loading consultation history:", e);
     }
   }, []);
 
-  const displayName = userProfile?.firstName
+  const displayName = userProfile?.name
+    ? userProfile.name.split(" ")[0].charAt(0).toUpperCase() + userProfile.name.split(" ").slice(0).join("").slice(1)
+    : userProfile?.firstName
     ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
     : userProfile?.email
     ? userProfile.email.split("@")[0].charAt(0).toUpperCase() + userProfile.email.split("@")[0].slice(1)
     : "Alaafia User";
 
-  const userInitial = userProfile?.firstName
+  const userInitial = userProfile?.name
+    ? userProfile.name.charAt(0).toUpperCase()
+    : userProfile?.firstName
     ? userProfile.firstName.charAt(0).toUpperCase()
     : userProfile?.email
     ? userProfile.email.charAt(0).toUpperCase()

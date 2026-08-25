@@ -33,6 +33,8 @@ import LogoutModal from "@/components/LogoutModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
 import { useAuthRedirect } from "@/lib/useAuthRedirect";
+import { api } from "@/lib/api";
+import { getStoredUser } from "@/app/services/authService";
 
 export default function DashboardPage() {
   useAuthRedirect();
@@ -49,57 +51,57 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState([
     {
       id: "n-1",
-      title: "Clinical summary ready",
-      desc: "Your recent consultation summary has been prepared for doctor handoff.",
-      time: "10m ago",
+      title: "Welcome to Alaafia",
+      desc: "Start your first voice consultation to get personalized health guidance.",
+      time: "Just now",
       unread: true,
-    },
-    {
-      id: "n-2",
-      title: "Care Support balance active",
-      desc: "Emergency health wallet connected with ₦30,000 available.",
-      time: "2h ago",
-      unread: true,
-    },
-    {
-      id: "n-3",
-      title: "Safety rules verification",
-      desc: "All active triage protocols updated to 2026 clinical standards.",
-      time: "Yesterday",
-      unread: false,
     },
   ]);
 
   useEffect(() => {
     try {
-      // 1. Check query string ?newUser=true
       const urlParams = new URLSearchParams(window.location.search);
       const isNewQuery = urlParams.get("newUser");
       const storedIsNew = localStorage.getItem("alaafia_is_new_user");
-      const storedUser = localStorage.getItem("alaafia_user");
       const storedConsultations = JSON.parse(localStorage.getItem("alaafia_saved_consultations") || "[]");
 
       if (Array.isArray(storedConsultations) && storedConsultations.length > 0) {
         setSavedConsultations(storedConsultations);
       }
 
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        setUserProfile(parsed);
-
-        // Automatic detection
-        if (isNewQuery === "true" || storedIsNew === "true" || parsed.isNewUser === true) {
-          setIsNewUser(true);
-        } else {
-          setIsNewUser(false);
-        }
+      const user = getStoredUser();
+      if (user) {
+        setUserProfile(user);
+        setIsNewUser(isNewQuery === "true" || storedIsNew === "true" || user.isNewUser === true);
       } else {
-        if (isNewQuery === "true" || storedIsNew === "true") {
-          setIsNewUser(true);
-        } else {
-          setIsNewUser(false);
-        }
+        setIsNewUser(isNewQuery === "true" || storedIsNew === "true");
       }
+
+      api.get("/consultations?limit=10").then((res) => {
+        if (res.data?.consultations?.length > 0) {
+          const remoteConsultations = res.data.consultations.map((c: any) => ({
+            id: c.id,
+            title: c.initialInput?.slice(0, 50) || "Consultation",
+            time: new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            outcome: c.TriageResult?.severity
+              ? `${c.TriageResult.severity} priority`
+              : "Assessment pending",
+            outcomeColor: c.TriageResult?.severity === "CRITICAL" ? "bg-red-50 text-red-700 border-red-200" :
+              c.TriageResult?.severity === "HIGH" ? "bg-orange-50 text-orange-700 border-orange-200" :
+              "bg-teal-50 text-teal-700 border-teal-200",
+            icon: BriefcaseMedical,
+            symptoms: c.extractedSymptoms?.map((s: any) => s.name || s) || [],
+            urgency: c.TriageResult?.severity || "Standard",
+            whatToSay: c.initialInput,
+            status: c.status,
+          }));
+          setSavedConsultations((prev) => {
+            const localIds = new Set(prev.map((p: any) => p.id));
+            const newRemote = remoteConsultations.filter((r: any) => !localIds.has(r.id));
+            return [...newRemote, ...prev];
+          });
+        }
+      }).catch(() => {});
     } catch (e) {
       console.error("Error reading dashboard state:", e);
     }
@@ -114,70 +116,34 @@ export default function DashboardPage() {
   };
 
   // Dynamic user display name & avatar initial
-  const displayName = userProfile?.firstName
+  const displayName = userProfile?.name
+    ? userProfile.name.split(" ")[0].charAt(0).toUpperCase() + userProfile.name.split(" ").slice(0).join("").slice(1)
+    : userProfile?.firstName
     ? userProfile.firstName.charAt(0).toUpperCase() + userProfile.firstName.slice(1)
     : userProfile?.email
     ? userProfile.email.split("@")[0].charAt(0).toUpperCase() + userProfile.email.split("@")[0].slice(1)
-    : "Ruqayah";
+    : "there";
 
-  const userInitial = userProfile?.firstName
+  const userInitial = userProfile?.name
+    ? userProfile.name.charAt(0).toUpperCase()
+    : userProfile?.firstName
     ? userProfile.firstName.charAt(0).toUpperCase()
     : userProfile?.email
     ? userProfile.email.charAt(0).toUpperCase()
-    : "R";
+    : "U";
 
-  // Default user consultation history data (for existing user view)
-  const defaultConsultations = [
-    {
-      id: "def-1",
-      title: "Chest discomfort & pain",
-      time: "Today",
-      outcome: "Clinic assessment recommended",
-      outcomeColor: "bg-teal-50 text-teal-700 border-teal-200",
-      icon: BriefcaseMedical,
-      symptoms: ["Left-sided chest tightness", "Mild shortness of breath"],
-      urgency: "High / Urgent Care",
-      whatToSay: "Patient experienced left-sided chest tightness starting earlier today with mild exertion.",
-    },
-    {
-      id: "def-2",
-      title: "Persistent throbbing headache",
-      time: "Oct 12",
-      outcome: "Self-care & rest recommended",
-      outcomeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      icon: Activity,
-      symptoms: ["Bilateral temple pressure", "Eye strain fatigue"],
-      urgency: "Routine / Primary Clinic",
-      whatToSay: "Bilateral temple headache persisting for 3 days, worsens in the evening with screen exposure.",
-    },
-    {
-      id: "def-3",
-      title: "Stomach discomfort & nausea",
-      time: "Sep 28",
-      outcome: "Pharmacy visit / Hydration",
-      outcomeColor: "bg-sky-50 text-sky-700 border-sky-200",
-      icon: FileText,
-      symptoms: ["Lower abdominal dull ache", "Nausea after meals"],
-      urgency: "Non-Urgent Clinic",
-      whatToSay: "Dull ache in lower abdomen since yesterday with intermittent nausea.",
-    },
-  ];
-
-  // Combine newly saved consultations from localStorage with defaults
-  const allConsultations = [
-    ...savedConsultations.map((item, idx) => ({
-      id: item.id || `saved-${idx}`,
-      title: item.title || "Consultation Summary",
-      time: item.time || "Just now",
-      outcome: item.outcome || "Medical assessment recommended",
-      outcomeColor: "bg-teal-50 text-teal-700 border-teal-200",
-      icon: BriefcaseMedical,
-      symptoms: item.symptoms || ["Reported symptoms processed"],
-      urgency: item.severity || "Standard Triage",
-      whatToSay: item.whatToTellDoctor || "Summary notes generated by Alaafia AI.",
-    })),
-    ...defaultConsultations,
-  ];
+  // Combine consultations from API/localStorage
+  const allConsultations = savedConsultations.map((item, idx) => ({
+    id: item.id || `saved-${idx}`,
+    title: item.title || "Consultation Summary",
+    time: item.time || "Just now",
+    outcome: item.outcome || "Medical assessment recommended",
+    outcomeColor: item.outcomeColor || "bg-teal-50 text-teal-700 border-teal-200",
+    icon: item.icon || BriefcaseMedical,
+    symptoms: item.symptoms || [],
+    urgency: item.urgency || item.severity || "Standard Triage",
+    whatToSay: item.whatToSay || item.whatToTellDoctor || "Summary notes generated by Alaafia.",
+  }));
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
@@ -284,7 +250,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-teal-200 text-teal-800 text-xs font-bold shadow-2xs hover:bg-teal-50 transition-all"
               >
                 <Wallet className="w-3.5 h-3.5 text-teal-600" />
-                <span>Care Fund: ₦30,000</span>
+                <span>Care Fund</span>
               </Link>
               <Link
                 href="/consultation"

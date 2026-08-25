@@ -299,6 +299,43 @@ class ConsultationController {
       });
     }
   }
+  /**
+   * List consultations for the authenticated user
+   * GET /api/v1/consultations
+   */
+  static async listConsultations(req, res) {
+    try {
+      const { resolveVerifiedActorId } = require("../utils/actor");
+      const userId = resolveVerifiedActorId(req);
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+      const offset = parseInt(req.query.offset) || 0;
+
+      const where = userId ? { userId } : {};
+      const { count, rows } = await Consultation.findAndCountAll({
+        where,
+        include: [{ model: TriageResult, as: "TriageResult" }],
+        order: [["createdAt", "DESC"]],
+        limit,
+        offset,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          consultations: rows,
+          total: count,
+          limit,
+          offset,
+        },
+      });
+    } catch (error) {
+      console.error("Error listing consultations:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to list consultations",
+      });
+    }
+  }
 }
 
 module.exports = ConsultationController;

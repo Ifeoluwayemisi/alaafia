@@ -36,6 +36,7 @@ import DeleteAccountModal from "@/components/DeleteAccountModal";
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
 import { useAuthRedirect } from "@/lib/useAuthRedirect";
+import { api } from "@/lib/api";
 
 export default function SettingsPage() {
   useAuthRedirect();
@@ -110,7 +111,7 @@ export default function SettingsPage() {
     setViewMode("edit-profile");
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setFullName(editFullName);
@@ -120,6 +121,7 @@ export default function SettingsPage() {
 
       const updatedUser = {
         ...userProfile,
+        name: editFullName,
         firstName: editFullName.split(" ")[0] || editFullName,
         lastName: editFullName.split(" ").slice(1).join(" ") || "",
         email: editEmail,
@@ -128,6 +130,9 @@ export default function SettingsPage() {
       };
       localStorage.setItem("alaafia_user", JSON.stringify(updatedUser));
       setUserProfile(updatedUser);
+
+      api.put("/auth/profile", { name: editFullName, phone: editPhone }).catch(() => {});
+
       setViewMode("settings");
       showToast("Profile details updated successfully!");
     } catch (err) {
