@@ -290,38 +290,83 @@ export default function CareSupportPage() {
                     <span className="text-[11px] font-semibold text-slate-400">({contacts.length}/4)</span>
                   </div>
                   {contacts.length < 4 && (
-                    <button type="button" onClick={() => setIsContactsModalOpen(true)} className="text-xs font-bold text-cyan-700 hover:underline flex items-center gap-1 cursor-pointer">
+                    <Link
+                      href="/care-support/add-contact"
+                      className="text-xs font-bold text-cyan-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
                       <Plus className="w-3 h-3" /> <span>{contacts.length === 0 ? "Add Contact" : "Add More"}</span>
-                    </button>
+                    </Link>
                   )}
                 </div>
                 {contacts.length === 0 ? (
                   <div className="py-6 px-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-2.5">
-                    <div className="w-9 h-9 rounded-full bg-cyan-50 text-cyan-700 mx-auto flex items-center justify-center"><UsersRound className="w-4 h-4" /></div>
+                    <div className="w-9 h-9 rounded-full bg-cyan-50 text-cyan-700 mx-auto flex items-center justify-center">
+                      <UsersRound className="w-4 h-4" />
+                    </div>
                     <div className="space-y-0.5">
                       <p className="text-xs font-bold text-slate-800">No emergency contacts added</p>
-                      <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">Add trusted family members or doctors who should be alerted during severe medical situations.</p>
+                      <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                        Add trusted family members or doctors who should be alerted during severe medical situations.
+                      </p>
                     </div>
-                    <button type="button" onClick={() => setIsContactsModalOpen(true)} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-teal-300 text-teal-800 text-xs font-bold hover:bg-teal-50 shadow-2xs transition-all cursor-pointer"><Plus className="w-3.5 h-3.5 text-teal-600" /> <span>Add your emergency contact</span></button>
+                    <Link
+                      href="/care-support/add-contact"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-teal-300 text-teal-800 text-xs font-bold hover:bg-teal-50 shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-teal-600" /> <span>Add emergency contact</span>
+                    </Link>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {contacts.map((contact) => (
-                      <div key={contact.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-teal-50/40 border border-slate-150 transition-colors group">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border ${contact.color}`}>{contact.initials}</span>
+                      <div
+                        key={contact.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-teal-50/40 border border-slate-150 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold border ${contact.color}`}
+                          >
+                            {contact.initials}
+                          </span>
                           <div className="min-w-0">
-                            <strong className="block text-xs text-slate-900 truncate">{contact.name}</strong>
-                            <small className="block text-[10px] text-slate-500 truncate">{contact.relation} • {contact.phone}</small>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <strong className="block text-xs font-bold text-slate-900 truncate">
+                                {contact.name}
+                              </strong>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-teal-100 text-teal-800 border border-teal-200">
+                                {contact.relation}
+                              </span>
+                            </div>
+                            <small className="block text-[11px] text-slate-500 truncate mt-0.5">
+                              {contact.phone}
+                            </small>
                           </div>
                         </div>
-                        <button type="button" onClick={() => handleRemoveContact(contact.id)} title="Remove contact" className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-white transition-colors cursor-pointer" aria-label={`Remove ${contact.name}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveContact(contact.id)}
+                          title="Remove contact"
+                          className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                          aria-label={`Remove ${contact.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     ))}
                     {contacts.length < 4 ? (
-                      <div className="pt-1 text-center"><button type="button" onClick={() => setIsContactsModalOpen(true)} className="text-[11px] font-bold text-teal-700 hover:underline cursor-pointer inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add another contact ({4 - contacts.length} remaining)</button></div>
+                      <div className="pt-1.5 text-center">
+                        <Link
+                          href="/care-support/add-contact"
+                          className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-teal-50/60 hover:bg-teal-100/60 text-teal-800 text-xs font-bold border border-teal-200/60 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-teal-600" /> Add more contacts ({4 - contacts.length} remaining)
+                        </Link>
+                      </div>
                     ) : (
-                      <div className="p-2 rounded-lg bg-teal-50/70 border border-teal-100 text-center text-[10px] font-bold text-teal-800">✓ Maximum 4 emergency contacts reached</div>
+                      <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-100 text-center text-xs font-bold text-teal-800 flex items-center justify-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-teal-600" /> Maximum 4 emergency contacts reached
+                      </div>
                     )}
                   </div>
                 )}
