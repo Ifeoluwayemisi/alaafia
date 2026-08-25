@@ -32,6 +32,24 @@ const PaymentRequest = sequelize.define(
       allowNull: false,
       comment: "Expected amount in kobo (integer)",
     },
+    platformFeeBps: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "Take-rate basis points applied to this payment (300 = 3%); 0 = no fee",
+    },
+    platformFeeMinor: {
+      type: DataTypes.BIGINT,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "Platform share in kobo, fixed at initiation; never recomputed",
+    },
+    netToCareMinor: {
+      type: DataTypes.BIGINT,
+      allowNull: false,
+      defaultValue: 0,
+      comment: "amountMinor minus platformFeeMinor; the value that counts toward care goals",
+    },
     currency: {
       type: DataTypes.STRING(3),
       allowNull: false,

@@ -5,7 +5,6 @@ const SupportContact = require("../../models/SupportContact");
 const PaymentRequest = require("../../models/PaymentRequest");
 const { assertValidMinor } = require("../../utils/money");
 const paymentService = require("../payments/payment.service");
-
 async function expireIfDue(request) {
   if (
     request.expiresAt &&
@@ -62,6 +61,7 @@ async function create({
 }
 
 function publicView(request, contacts = []) {
+  const feePolicy = paymentService.getPlatformFeePolicy();
   return {
     shareToken: request.shareToken,
     message: request.message,
@@ -72,6 +72,14 @@ function publicView(request, contacts = []) {
       0,
       Number(request.requestedAmountMinor) - Number(request.receivedAmountMinor)
     ),
+    platformFee: {
+      bps: feePolicy.bps,
+      appliesAboveMinor: feePolicy.thresholdMinor,
+      note:
+        feePolicy.bps === 0
+          ? "No platform fee is currently charged"
+          : "Fee applies to contribution amounts above the threshold",
+    },
     status: request.status,
     expiresAt: request.expiresAt,
     createdAt: request.createdAt,

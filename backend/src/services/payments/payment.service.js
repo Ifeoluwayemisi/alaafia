@@ -2,9 +2,37 @@ const crypto = require("crypto");
 const { sequelize } = require("../../models");
 const PaymentRequest = require("../../models/PaymentRequest");
 const SupportRequest = require("../../models/SupportRequest");
-const { assertValidMinor } = require("../../utils/money");
+const { assertValidMinor, computePlatformFeeMinor, parsePlatformFeeBps } = require("../../utils/money");
 const { createPaymentGateway } = require("./index");
 const { MockPaymentAdapter } = require("./mock.payment.adapter");
+
+// The platform take-rate may apply to crowdfunded gifts only; care payments
+// pass through at face value. Charges are OFF by default and additionally
+// gated behind a minimum-amount threshold, so no gift is taxed by accident.
+// ALATPay's own processor fee is absorbed by the platform, never the payer.
+const FEE_ELIGIBLE_TYPES = new Set(["SUPPORT_CONTRIBUTION"]);
+const DEFAULT_PLATFORM_FEE_BPS = 0;
+
+function resolveEffectiveFeeBps(type, amountMinor) {
+  if (!FEE_ELIGIBLE_TYPES.has(type)) return 0;
+  const bps = parsePlatformFeeBps(process.env.PLATFORM_FEE_BPS, DEFAULT_PLATFORM_FEE_BPS);
+  if (bps === 0) return 0;
+  const rawThreshold = Number(process.env.PLATFORM_FEE_THRESHOLD_MINOR || 0);
+  const threshold =
+    Number.isSafeInteger(rawThreshold) && rawThreshold > 0 ? rawThreshold : 0;
+  if (threshold > 0 && Number(amountMinor) < threshold) return 0;
+  return bps;
+}
+
+function getPlatformFeePolicy() {
+  const rawThreshold = Number(process.env.PLATFORM_FEE_THRESHOLD_MINOR || 0);
+  return {
+    eligibleTypes: [...FEE_ELIGIBLE_TYPES],
+    bps: parsePlatformFeeBps(process.env.PLATFORM_FEE_BPS, DEFAULT_PLATFORM_FEE_BPS),
+    thresholdMinor:
+      Number.isSafeInteger(rawThreshold) && rawThreshold > 0 ? rawThreshold : 0,
+  };
+}
 
 const TRANSITIONS = {
   PENDING: ["PROCESSING", "FAILED", "CANCELLED"],
@@ -47,6 +75,8 @@ function initiationFingerprint({
   consultationId,
   supportRequestId,
   actorId,
+  platformFeeBps,
+  netToCareMinor,
 }) {
   const immutable = JSON.stringify({
     type,
@@ -55,6 +85,8 @@ function initiationFingerprint({
     consultationId: consultationId || null,
     supportRequestId: supportRequestId || null,
     actorId: actorId || null,
+    platformFeeBps: platformFeeBps || 0,
+    netToCareMinor: netToCareMinor == null ? null : Number(netToCareMinor),
   });
   return crypto.createHash("sha256").update(immutable).digest("hex");
 }
@@ -78,14 +110,21 @@ function requireGateway() {
 }
 
 async function recalcSupportTotals(supportRequestId, transaction) {
-  const paidTotal = await PaymentRequest.sum("amountMinor", {
+  // Contributions count NET of the platform fee so a request only reads FUNDED
+  // once the patient's actual need has been delivered.
+  const paidContributions = await PaymentRequest.findAll({
     where: {
       supportRequestId,
       type: "SUPPORT_CONTRIBUTION",
       status: "PAID",
     },
+    attributes: ["amountMinor", "platformFeeMinor"],
     transaction,
   });
+  const paidTotal = paidContributions.reduce(
+    (sum, c) => sum + (Number(c.amountMinor) - Number(c.platformFeeMinor || 0)),
+    0
+  );
   const request = await SupportRequest.findByPk(supportRequestId, { transaction });
   if (!request) return;
   const received = Number(paidTotal || 0);
@@ -134,8 +173,12 @@ async function initiate(input) {
     err.code = "VALIDATION_ERROR";
     throw err;
   }
+  const feeBps = resolveEffectiveFeeBps(type, Number(amountMinor));
+  const platformFeeMinor = computePlatformFeeMinor(Number(amountMinor), feeBps);
+  const netToCareMinor = Number(amountMinor) - platformFeeMinor;
   const requestFingerprint = initiationFingerprint({
     type, amountMinor, currency: normalizedCurrency, consultationId, supportRequestId, actorId,
+    platformFeeBps: feeBps, netToCareMinor,
   });
 
   const existing = await PaymentRequest.findOne({ where: { idempotencyKey } });
@@ -165,7 +208,12 @@ async function initiate(input) {
     }
     const remaining =
       request.requestedAmountMinor - Number(request.receivedAmountMinor || 0);
-    if (amountMinor > remaining) {
+    if (netToCareMinor <= 0) {
+      const err = new Error("Contribution nets to nothing after fees");
+      err.code = "INVALID_AMOUNT";
+      throw err;
+    }
+    if (netToCareMinor > remaining) {
       const err = new Error(
         "Contribution exceeds the remaining amount needed for this request"
       );
@@ -181,6 +229,9 @@ async function initiate(input) {
       status: "PENDING",
       amountMinor,
       currency: normalizedCurrency,
+      platformFeeBps: feeBps,
+      platformFeeMinor,
+      netToCareMinor,
       consultationId,
       supportRequestId,
       actorId,
@@ -359,4 +410,5 @@ module.exports = {
   confirmSimulatedPayment,
   applyGatewayUpdate,
   recalcSupportTotals,
+  getPlatformFeePolicy,
 };

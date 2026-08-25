@@ -41,6 +41,11 @@ function publicPaymentView(payment) {
     type: payment.type,
     status: payment.status,
     amountMinor: Number(payment.amountMinor),
+    platformFeeBps: Number(payment.platformFeeBps || 0),
+    platformFeeMinor: Number(payment.platformFeeMinor || 0),
+    netToCareMinor: Number(
+      payment.netToCareMinor != null ? payment.netToCareMinor : payment.amountMinor
+    ),
     currency: payment.currency,
     orderId: payment.orderId,
     gateway: payment.gateway,

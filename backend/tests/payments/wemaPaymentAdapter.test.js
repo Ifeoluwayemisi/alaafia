@@ -95,6 +95,19 @@ test("preserves the verified fields required before a payment can be credited", 
   });
 });
 
+test("treats a not-yet-funded virtual account (HTTP 404 lookup) as pending, never failed", async () => {
+  setTestConfig();
+  global.fetch = async () => ({
+    ok: false,
+    status: 404,
+    json: async () => ({ status: false, message: "not found" }),
+  });
+  const result = await new WemaPaymentAdapter().retrieveStatus("provider-transaction-id");
+  assert.equal(result.gatewayStatus, "PENDING_GATEWAY");
+  assert.equal(result.rawStatus, "LOOKUP_NOT_FOUND");
+  assert.equal(result.amountSentMajor, null);
+});
+
 test("rejects every webhook until an official signature contract is available", () => {
   assert.throws(
     () => new WemaPaymentAdapter().verifyWebhook({ headers: {} }),

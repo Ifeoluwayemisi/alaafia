@@ -54,6 +54,30 @@ function formatNairaMinor(amountMinor) {
   return `₦${(amountMinor / NAIRA_UNIT_MINOR).toLocaleString("en-NG")}`;
 }
 
+/**
+ * Platform take-rate arithmetic. Basis points keep rates exact (300 bps = 3%);
+ * the BigInt intermediate rules out overflow, and floor() guarantees the fee
+ * never rounds up against a payer.
+ */
+function computePlatformFeeMinor(amountMinor, bps) {
+  assertValidMinor(amountMinor);
+  if (!Number.isInteger(bps) || bps < 0 || bps > 10000) {
+    const err = new Error("fee bps must be an integer between 0 and 10000");
+    err.code = "INVALID_FEE_CONFIGURATION";
+    throw err;
+  }
+  if (bps === 0) return 0;
+  return Number((BigInt(amountMinor) * BigInt(bps)) / 10000n);
+}
+
+function parsePlatformFeeBps(rawValue, fallbackBps = 0) {
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10000) {
+    return fallbackBps;
+  }
+  return parsed;
+}
+
 module.exports = {
   NAIRA_UNIT_MINOR,
   assertValidMinor,
@@ -62,4 +86,6 @@ module.exports = {
   toMajor,
   calculateFundingGap,
   formatNairaMinor,
+  computePlatformFeeMinor,
+  parsePlatformFeeBps,
 };

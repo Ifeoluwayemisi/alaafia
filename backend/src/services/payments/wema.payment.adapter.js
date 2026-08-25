@@ -148,9 +148,28 @@ class WemaPaymentAdapter {
    */
   async retrieveStatus(gatewayReference) {
     if (!gatewayReference) notConfigured();
-    const payload = await request(
-      `/bank-transfer/api/v1/bankTransfer/transactions/${encodeURIComponent(gatewayReference)}`
-    );
+    let payload;
+    try {
+      payload = await request(
+        `/bank-transfer/api/v1/bankTransfer/transactions/${encodeURIComponent(gatewayReference)}`
+      );
+    } catch (error) {
+      // Verified in production: ALATPay answers HTTP 404 while a virtual
+      // account has received no inflow yet, then serves the full record once
+      // funds land. 404 therefore means "nothing to report", never failure.
+      if (error.code === "PROVIDER_ERROR" && error.providerStatus === 404) {
+        return {
+          gatewayName: GATEWAY_NAME,
+          gatewayStatus: "PENDING_GATEWAY",
+          rawStatus: "LOOKUP_NOT_FOUND",
+          amountSentMajor: null,
+          isAmountDiscrepant: false,
+          orderId: null,
+          currency: null,
+        };
+      }
+      throw error;
+    }
     const data = payload && payload.data ? payload.data : null;
     if (!data) {
       const err = new Error("ALATPay returned an unexpected verification response");

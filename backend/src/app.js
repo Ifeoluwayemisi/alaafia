@@ -19,6 +19,11 @@ const webhookRoutes = require("./routes/webhookRoutes");
 
 const app = express();
 
+// Railway (and most PaaS) terminates TLS at one proxy layer; without this,
+// express-rate-limit would count all traffic against the proxy IP and 429
+// the entire platform collectively.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 app.use(
