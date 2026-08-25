@@ -21,8 +21,6 @@ USER appuser
 
 # The model is intentionally not downloaded during docker build. app.py loads
 # it once at container startup, then reuses that instance for every request.
-# Mount /home/appuser/.cache/huggingface to retain the download across
-# container recreation. WHISPER_MODEL remains runtime-configurable.
 
 EXPOSE 8001
 

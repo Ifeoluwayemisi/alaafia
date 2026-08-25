@@ -19,6 +19,9 @@ tags:
   - name: Hospitals
   - name: Facilities
   - name: Emergency
+  - name: Payments
+  - name: Support Requests
+  - name: Webhooks
 
 paths:
   /health:
@@ -500,6 +503,260 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /payments/initiate:
+    post:
+      tags: [Payments]
+      summary: Initiate a care payment or support contribution
+      description: |
+        Creates a PENDING payment and requests an ALATPay virtual account.
+        It never marks the payment PAID. An Idempotency-Key is required; reuse
+        with different immutable payment details returns IDEMPOTENCY_CONFLICT.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInitiationRequest"
+      responses:
+        "201":
+          description: Payment initiated and awaiting verified payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "200":
+          description: Existing payment returned for a safe idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Idempotency conflict or invalid payment state
+        "422":
+          description: Contribution exceeds the remaining support-request amount
+        "502":
+          description: ALATPay rejected the initialization request
+        "503":
+          description: Payment gateway is not configured
+        "504":
+          description: ALATPay initialization timed out
+
+  /payments/{id}:
+    get:
+      tags: [Payments]
+      summary: Retrieve a payment request
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Payment retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /payments/{id}/verify:
+    post:
+      tags: [Payments]
+      summary: Verify payment status with ALATPay
+      description: |
+        Performs server-side transaction lookup using the stored ALATPay
+        transaction reference. A payment is credited only if reference, order,
+        NGN currency, exact amount, non-discrepant amount, and documented
+        completed status all match.
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Verification completed; inspect data.status and verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Payment is final or has no provider reference
+        "502":
+          description: ALATPay verification failed
+        "504":
+          description: ALATPay verification timed out
+
+  /payments/{id}/cancel:
+    post:
+      tags: [Payments]
+      summary: Cancel a non-final payment request
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actorId: { type: string, description: Temporary ownership identifier pending shared authentication. }
+      responses:
+        "200":
+          description: Payment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResponse"
+        "403":
+          description: Payment is owned by another actor
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Payment cannot be cancelled in its current state
+
+  /support-requests:
+    post:
+      tags: [Support Requests]
+      summary: Create a trusted-contact support request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSupportRequest"
+      responses:
+        "201":
+          description: Support request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /support-requests/{id}:
+    get:
+      tags: [Support Requests]
+      summary: Retrieve a support request for its patient
+      parameters:
+        - $ref: "#/components/parameters/SupportRequestId"
+        - name: patientRef
+          in: query
+          schema: { type: string }
+          description: Temporary ownership identifier pending shared authentication.
+      responses:
+        "200":
+          description: Support request retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportRequestResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /support-requests/{id}/cancel:
+    post:
+      tags: [Support Requests]
+      summary: Cancel a support request
+      parameters:
+        - $ref: "#/components/parameters/SupportRequestId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patientRef: { type: string }
+      responses:
+        "200":
+          description: Support request cancelled
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Support request is already closed
+
+  /support-requests/share/{shareToken}:
+    get:
+      tags: [Support Requests]
+      summary: Retrieve the public trusted-contact view
+      parameters:
+        - $ref: "#/components/parameters/ShareToken"
+      responses:
+        "200":
+          description: Public support request and verified contributions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSupportRequestResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /support-requests/share/{shareToken}/contributions:
+    post:
+      tags: [Support Requests]
+      summary: Initiate a support contribution
+      description: Uses the same real ALATPay payment system as CARE_PAYMENT.
+      parameters:
+        - $ref: "#/components/parameters/ShareToken"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportContributionRequest"
+      responses:
+        "201":
+          description: Contribution payment initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributionResponse"
+        "200":
+          description: Existing contribution returned for a safe idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: Support request is closed, funded, or idempotency conflict
+        "422":
+          description: Contribution exceeds remaining amount
+
+  /webhooks/wema:
+    post:
+      tags: [Webhooks]
+      summary: ALATPay webhook receiver (canonical)
+      description: |
+        Reserved for ALATPay callbacks. It is deliberately fail-closed until
+        ALATPay publishes the exact webhook signature verification contract.
+        Unauthenticated callbacks return 401 and never change payment state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "401":
+          description: Webhook authentication cannot be verified
+        "503":
+          description: Payment gateway is not configured
+
+  /webhooks/alatpay:
+    post:
+      tags: [Webhooks]
+      deprecated: true
+      summary: Temporary legacy alias for the Wema webhook receiver
+      description: Routes to the same fail-closed handler as /webhooks/wema.
+      responses:
+        "401":
+          description: Webhook authentication cannot be verified
+
 components:
   parameters:
     ConsultationId:
@@ -512,6 +769,27 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SupportRequestId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ShareToken:
+      name: shareToken
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 255 }
+      description: Unique key for safe retry of one payment initiation request.
     Latitude:
       name: latitude
       in: query
@@ -745,3 +1023,129 @@ components:
             details:
               type: array
               items: {}
+    PaymentType:
+      type: string
+      enum: [CARE_PAYMENT, SUPPORT_CONTRIBUTION]
+    PaymentStatus:
+      type: string
+      enum: [PENDING, PROCESSING, PAID, FAILED, EXPIRED, CANCELLED]
+    PaymentInitiationRequest:
+      type: object
+      required: [type, amountMinor, customer]
+      properties:
+        type: { $ref: "#/components/schemas/PaymentType" }
+        amountMinor: { type: integer, format: int64, minimum: 1, description: Amount in kobo. }
+        currency: { type: string, enum: [NGN], default: NGN }
+        consultationId: { type: string, format: uuid, nullable: true }
+        supportRequestId: { type: string, format: uuid, nullable: true }
+        actorId: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        customer:
+          type: object
+          required: [email, firstName, lastName]
+          properties:
+            email: { type: string, format: email }
+            phone: { type: string, nullable: true }
+            firstName: { type: string }
+            lastName: { type: string }
+            metadata: { type: string, nullable: true }
+    PaymentView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/PaymentType" }
+        status: { $ref: "#/components/schemas/PaymentStatus" }
+        amountMinor: { type: integer, format: int64 }
+        currency: { type: string, example: NGN }
+        orderId: { type: string }
+        gateway: { type: string, example: WEMA_ALATPAY, nullable: true }
+        virtualAccountDetails: { type: object, nullable: true, additionalProperties: true }
+        consultationId: { type: string, format: uuid, nullable: true }
+        supportRequestId: { type: string, format: uuid, nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
+        isLive: { type: boolean, example: true }
+    PaymentResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          allOf:
+            - $ref: "#/components/schemas/PaymentView"
+            - type: object
+              properties:
+                replayed: { type: boolean }
+                verification: { type: object, additionalProperties: true }
+        message: { type: string }
+    CreateSupportRequest:
+      type: object
+      required: [patientRef, requestedAmountMinor]
+      properties:
+        patientRef: { type: string }
+        consultationId: { type: string, format: uuid, nullable: true }
+        requestedAmountMinor: { type: integer, format: int64, minimum: 1 }
+        message: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        contacts:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            properties:
+              displayName: { type: string }
+              contactChannel: { type: string, nullable: true }
+    SupportRequestView:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shareToken: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, PARTIALLY_FUNDED, FUNDED, EXPIRED, CANCELLED] }
+        requestedAmountMinor: { type: integer, format: int64 }
+        receivedAmountMinor: { type: integer, format: int64 }
+        remainingAmountMinor: { type: integer, format: int64 }
+        currency: { type: string, example: NGN }
+        expiresAt: { type: string, format: date-time, nullable: true }
+    SupportRequestResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data: { $ref: "#/components/schemas/SupportRequestView" }
+        message: { type: string }
+    SupportContributionRequest:
+      type: object
+      required: [amountMinor, customer]
+      properties:
+        amountMinor: { type: integer, format: int64, minimum: 1 }
+        contributorName: { type: string, nullable: true }
+        contributorContact: { type: string, nullable: true }
+        customer: { $ref: "#/components/schemas/PaymentInitiationRequest/properties/customer" }
+    ContributionResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          type: object
+          properties:
+            payment: { $ref: "#/components/schemas/PaymentView" }
+            supportRequest: { $ref: "#/components/schemas/SupportRequestView" }
+            replayed: { type: boolean }
+        message: { type: string }
+    PublicSupportRequestResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          allOf:
+            - $ref: "#/components/schemas/SupportRequestView"
+            - type: object
+              properties:
+                message: { type: string, nullable: true }
+                createdAt: { type: string, format: date-time }
+                contributions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      contributorName: { type: string, nullable: true }
+                      amountMinor: { type: integer, format: int64 }
+                      paidAt: { type: string, format: date-time }
+        message: { type: string }

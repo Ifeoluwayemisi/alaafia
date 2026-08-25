@@ -187,12 +187,10 @@ will prompt for `WHISPER_SERVICE_TOKEN`. Set the same token plus
 
 ### Docker
 
-Build (model baked into the image at build time):
+Build (the image does not download the model):
 
 ```bash
 docker build -t alafia-whisper ./whisper-service
-# different model size:
-docker build --build-arg WHISPER_MODEL=base -t alafia-whisper ./whisper-service
 ```
 
 Run (bound to localhost only by default):
@@ -201,6 +199,7 @@ Run (bound to localhost only by default):
 docker run -d --name alafia-whisper \
   -p 127.0.0.1:8001:8001 \
   -e WHISPER_SERVICE_TOKEN=change-me \
+  -v alafia-whisper-hf-cache:/home/appuser/.cache/huggingface \
   --memory=2g \
   alafia-whisper
 
@@ -209,8 +208,18 @@ curl http://127.0.0.1:8001/health
 
 On Railway/Render/Fly.io, point their Docker deploy at `whisper-service/`;
 mark the service private/internal and set `WHISPER_SERVICE_TOKEN` on both
-sides. The container health check uses `/health` with a 3-minute startup
+sides. The container health check uses `/health` with a 10-minute startup
 grace period for model loading.
+
+### Hugging Face Spaces (free)
+
+A ready-to-upload Space package lives in `deploy/hf-space/` — upload its four
+files (`README.md` with front-matter, `Dockerfile`, `app.py`,
+`requirements.txt`) to a new Docker Space, set `WHISPER_SERVICE_TOKEN` as a
+Space secret, then point the backend's `WHISPER_SERVICE_URL` at
+`https://<user>-<space-name>.hf.space`. If you change `app.py`,
+`requirements.txt`, or the Dockerfile, update the copies under
+`deploy/hf-space/` too.
 
 - Deploy as a separate service from the Node.js API (independent container/process).
 - CPU-only sizing for `small` int8: ~1 GB RAM free plus ~2 GB during first-run

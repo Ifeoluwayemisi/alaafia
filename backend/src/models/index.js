@@ -14,6 +14,11 @@ const EmergencyHandoff = require("./EmergencyHandoff");
 const Provider = require("./Provider");
 const User = require("./User");
 const EmailVerificationCode = require("./EmailVerificationCode");
+const PaymentRequest = require("./PaymentRequest");
+const SupportRequest = require("./SupportRequest");
+const SupportContact = require("./SupportContact");
+const ReferencePrice = require("./ReferencePrice");
+const WebhookEvent = require("./WebhookEvent");
 
 // Define associations
 Consultation.hasOne(TriageResult, {
@@ -43,6 +48,21 @@ Provider.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(EmailVerificationCode, { foreignKey: "userId" });
 EmailVerificationCode.belongsTo(User, { foreignKey: "userId" });
 
+// Payments & financial access
+Consultation.hasMany(PaymentRequest, { foreignKey: "consultationId" });
+PaymentRequest.belongsTo(Consultation, { foreignKey: "consultationId" });
+SupportRequest.hasMany(PaymentRequest, {
+  foreignKey: "supportRequestId",
+  as: "contributions",
+  constraints: false,
+});
+PaymentRequest.belongsTo(SupportRequest, {
+  foreignKey: "supportRequestId",
+  constraints: false,
+});
+SupportRequest.hasMany(SupportContact, { foreignKey: "supportRequestId" });
+SupportContact.belongsTo(SupportRequest, { foreignKey: "supportRequestId" });
+
 // Export models and sequelize instance
 module.exports = {
   sequelize,
@@ -61,4 +81,9 @@ module.exports = {
   Provider,
   User,
   EmailVerificationCode,
+  PaymentRequest,
+  SupportRequest,
+  SupportContact,
+  ReferencePrice,
+  WebhookEvent,
 };

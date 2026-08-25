@@ -13,6 +13,9 @@ const triageRoutes = require("./routes/triageRoutes");
 const hospitalRoutes = require("./routes/hospitalRoutes");
 const emergencyRoutes = require("./routes/emergencyRoutes");
 const guidanceRoutes = require("./routes/guidanceRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const supportRequestRoutes = require("./routes/supportRequestRoutes");
+const webhookRoutes = require("./routes/webhookRoutes");
 
 const app = express();
 
@@ -23,6 +26,13 @@ app.use(
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
   }),
+);
+
+// Raw body capture for provider webhook signature verification must run
+// before the JSON parser claims the body.
+app.use(
+  ["/api/v1/webhooks/wema", "/api/v1/webhooks/alatpay"],
+  express.raw({ type: "*/*", limit: "1mb" })
 );
 
 app.use(express.json({ limit: "50mb" }));
@@ -57,6 +67,9 @@ app.use("/api/v1/triage", triageRoutes);
 app.use("/api/v1/hospitals", hospitalRoutes);
 app.use("/api/v1/emergency", emergencyRoutes);
 app.use("/api/v1/guidance", guidanceRoutes);
+app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/support-requests", supportRequestRoutes);
+app.use("/api/v1/webhooks", webhookRoutes);
 
 // 404 handler
 app.use((req, res) => {
