@@ -13,6 +13,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+/**
+ * GET /api/v1/consultations
+ * List consultations for the authenticated user
+ */
+router.get("/", ConsultationController.listConsultations);
+
 router.post("/", ContractConsultationController.create);
 router.post("/:consultationId/message", ContractConsultationController.message);
 router.post(

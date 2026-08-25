@@ -16,6 +16,7 @@ export default function LogoutModal({ isOpen, onClose, onConfirm }: LogoutModalP
     try {
       localStorage.removeItem("alaafia_user");
       localStorage.removeItem("alaafia_is_new_user");
+      localStorage.removeItem("alaafia_token");
       sessionStorage.clear();
       if (onConfirm) {
         onConfirm();

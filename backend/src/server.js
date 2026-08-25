@@ -9,7 +9,7 @@ if (typeof dns.setDefaultResultOrder === "function") {
 }
 
 const app = require("./app");
-const { sequelize } = require("./models");
+const { sequelize, User } = require("./models");
 const ensureSchema = require("./utils/schemaMigrations");
 const paymentService = require("./services/payments/payment.service");
 
@@ -34,9 +34,14 @@ function startPaymentSweep() {
 // Initialize database and start server
 const startServer = async () => {
   try {
+    // Repair only orphaned enum types left by interrupted fresh-database syncs.
+    await ensureSchema.repairOrphanedEnums(sequelize);
     // Create missing tables without Sequelize's destructive alter workflow.
     // Schema changes should be handled through migrations once the MVP schema stabilizes.
     await sequelize.sync();
+    // Keep authentication available on fresh deployments even when an older
+    // database was created before the User model was added.
+    await User.sync();
     await ensureSchema(sequelize);
     console.log("Database synchronized");
 

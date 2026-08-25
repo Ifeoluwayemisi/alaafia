@@ -269,6 +269,54 @@ class AuthController {
       message: "Google login successful",
     });
   }
+
+  /**
+   * Get authenticated user's profile
+   * GET /api/v1/auth/profile
+   */
+  static async getProfile(req, res) {
+    try {
+      const { resolveVerifiedActorId } = require("../utils/actor");
+      const userId = resolveVerifiedActorId(req);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Authentication required" });
+      }
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found" });
+      }
+      return res.status(200).json({ success: true, data: publicUser(user) });
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      return res.status(500).json({ success: false, error: "Failed to fetch profile" });
+    }
+  }
+
+  /**
+   * Update authenticated user's profile
+   * PUT /api/v1/auth/profile
+   */
+  static async updateProfile(req, res) {
+    try {
+      const { resolveVerifiedActorId } = require("../utils/actor");
+      const userId = resolveVerifiedActorId(req);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Authentication required" });
+      }
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found" });
+      }
+      const { name, phone } = req.body || {};
+      if (name !== undefined) user.name = name;
+      if (phone !== undefined) user.phone = phone;
+      await user.save();
+      return res.status(200).json({ success: true, data: publicUser(user) });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      return res.status(500).json({ success: false, error: "Failed to update profile" });
+    }
+  }
 }
 
 module.exports = AuthController;

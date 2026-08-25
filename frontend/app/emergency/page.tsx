@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -27,10 +27,13 @@ import {
   Car,
   CheckCircle2,
   ExternalLink,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import VoiceListeningBox from "@/components/VoiceListeningBox";
 import MobileNav from "@/components/MobileNav";
 import { HospitalItem } from "@/components/RealMap";
+import { api } from "@/lib/api";
 
 // Dynamic import for Leaflet map component (No SSR)
 const RealMap = dynamic(() => import("@/components/RealMap"), {
@@ -44,112 +47,153 @@ const RealMap = dynamic(() => import("@/components/RealMap"), {
 });
 
 export default function EmergencyPage() {
-  const [viewMode, setViewMode] = useState<"options" | "listening" | "care-map">("options");
-  const [spokenText, setSpokenText] = useState(
-    "My brother suddenly collapsed and he isn't responding..."
-  );
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const [viewMode, setViewMode] = useState<
+    "options" | "listening" | "care-map"
+  >("options");
+  const [spokenText, setSpokenText] = useState("");
   const [cantSpeakOpen, setCantSpeakOpen] = useState(false);
-  const [selectedEmergencyType, setSelectedEmergencyType] = useState<string | null>(null);
+  const [selectedEmergencyType, setSelectedEmergencyType] = useState<
+    string | null
+  >(null);
   const [userLocation, setUserLocation] = useState("Lagos, Nigeria");
-  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 6.5244, lng: 3.3792 });
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({
+    lat: 6.5244,
+    lng: 3.3792,
+  });
   const [copiedLocation, setCopiedLocation] = useState(false);
   const [activeNumber, setActiveNumber] = useState("112");
-  const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(null);
+  const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(
+    null,
+  );
+  const [nearbyHospitals, setNearbyHospitals] = useState<any[]>([]);
+  const [isFetchingHospitals, setIsFetchingHospitals] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
 
-  // Default emergency hospital database
-  const defaultEmergencyHospitals: HospitalItem[] = [
-    {
-      id: "gen-hosp-1",
-      name: "General Hospital, Lagos",
-      address: "1 Hospital Road, Lagos Island, Lagos",
-      lat: 6.4531,
-      lng: 3.3958,
-      distance: "1.2 km away",
-      eta: "~5 min drive",
-      rating: 4.8,
-      reviewsCount: 420,
-      phone: "+234 1 987 6543",
-      status: "Verified Emergency Department",
-      badgeColor: "bg-red-50 text-red-700 border-red-200",
-      type: "Public Emergency Hospital",
-      isRecommended: true,
-      services: ["Verified emergency-capable", "Suitable for your reported situation", "Nearest available option"],
-    },
-    {
-      id: "st-nicholas-2",
-      name: "St. Nicholas Hospital",
-      address: "57 Campbell Street, Lagos Island, Lagos",
-      lat: 6.4502,
-      lng: 3.3912,
-      distance: "2.8 km away",
-      eta: "~12 min drive",
-      rating: 4.9,
-      reviewsCount: 310,
-      phone: "+234 1 271 0091",
-      status: "24/7 Trauma Ready",
-      badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
-      type: "Private Specialist Hospital",
-      isRecommended: false,
-      services: ["ICU & Resuscitation", "Cardiology", "Trauma Surgery"],
-    },
-    {
-      id: "luth-3",
-      name: "LUTH Medical Center",
-      address: "Idi-Araba, Surulere, Lagos",
-      lat: 6.5186,
-      lng: 3.3581,
-      distance: "4.1 km away",
-      eta: "~18 min drive",
-      rating: 4.7,
-      reviewsCount: 560,
-      phone: "+234 1 844 5566",
-      status: "Teaching & Tertiary Trauma Center",
-      badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
-      type: "Federal Tertiary Hospital",
-      isRecommended: false,
-      services: ["24/7 Emergency & ICU", "Burn Care", "Neuro-trauma"],
-    },
-  ];
+  // Fetch nearby emergency hospitals from backend
+  const fetchNearbyHospitals = async (lat: number, lng: number) => {
+    setIsFetchingHospitals(true);
+    try {
+      const result = await api.get(
+        `/hospitals/nearby?latitude=${lat}&longitude=${lng}&radius=15`,
+      );
+      setNearbyHospitals(result.data?.hospitals || []);
+    } catch (err) {
+      setNearbyHospitals([]);
+    } finally {
+      setIsFetchingHospitals(false);
+    }
+  };
 
-  // Get user GPS location on emergency page load for instant dispatch
   useEffect(() => {
     if (typeof window !== "undefined" && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-          setUserLocation("Lagos, Nigeria");
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setCoords({ lat, lng });
+          setUserLocation(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          fetchNearbyHospitals(lat, lng);
         },
         () => {
           setUserLocation("Lagos, Nigeria");
+          fetchNearbyHospitals(6.5244, 3.3792);
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 5000 },
       );
+    } else {
+      fetchNearbyHospitals(6.5244, 3.3792);
     }
-    setSelectedHospital(defaultEmergencyHospitals[0]);
-  }, []);
+  }, [router]);
 
   const emergencyNumbers = [
-    { label: "112 National Emergency", number: "112", description: "Police, Fire & Ambulance" },
-    { label: "767 Lagos State Emergency", number: "767", description: "LASEMA Quick Response" },
-    { label: "199 Federal Fire Service", number: "199", description: "Fire & Rescue" },
-    { label: "Red Cross Ambulance", number: "+23480073327677", description: "First Aid & Medical Dispatch" },
+    {
+      label: "112 National Emergency",
+      number: "112",
+      description: "Police, Fire & Ambulance",
+    },
+    {
+      label: "767 Lagos State Emergency",
+      number: "767",
+      description: "LASEMA Quick Response",
+    },
+    {
+      label: "199 Federal Fire Service",
+      number: "199",
+      description: "Fire & Rescue",
+    },
+    {
+      label: "Red Cross Ambulance",
+      number: "+23480073327677",
+      description: "First Aid & Medical Dispatch",
+    },
   ];
 
   const quickEmergencies = [
-    { id: "chest-pain", label: "Chest pain / Heart", icon: Heart, color: "border-red-300 bg-red-50 text-red-700" },
-    { id: "unconscious", label: "Unconscious / Fainted", icon: UserX, color: "border-amber-300 bg-amber-50 text-amber-800" },
-    { id: "choking", label: "Choking / Can't breathe", icon: Activity, color: "border-rose-300 bg-rose-50 text-rose-800" },
-    { id: "bleeding", label: "Severe bleeding / Trauma", icon: AlertTriangle, color: "border-red-300 bg-red-50 text-red-700" },
-    { id: "fire", label: "Fire / Burn hazard", icon: Flame, color: "border-orange-300 bg-orange-50 text-orange-800" },
-    { id: "danger", label: "Immediate personal danger", icon: ShieldAlert, color: "border-purple-300 bg-purple-50 text-purple-800" },
+    {
+      id: "chest-pain",
+      label: "Chest pain / Heart",
+      icon: Heart,
+      color: "border-red-300 bg-red-50 text-red-700",
+    },
+    {
+      id: "unconscious",
+      label: "Unconscious / Fainted",
+      icon: UserX,
+      color: "border-amber-300 bg-amber-50 text-amber-800",
+    },
+    {
+      id: "choking",
+      label: "Choking / Can't breathe",
+      icon: Activity,
+      color: "border-rose-300 bg-rose-50 text-rose-800",
+    },
+    {
+      id: "bleeding",
+      label: "Severe bleeding / Trauma",
+      icon: AlertTriangle,
+      color: "border-red-300 bg-red-50 text-red-700",
+    },
+    {
+      id: "fire",
+      label: "Fire / Burn hazard",
+      icon: Flame,
+      color: "border-orange-300 bg-orange-50 text-orange-800",
+    },
+    {
+      id: "danger",
+      label: "Immediate personal danger",
+      icon: ShieldAlert,
+      color: "border-purple-300 bg-purple-50 text-purple-800",
+    },
   ];
 
-  const handleStartSpeaking = () => {
+  const handleStartSpeaking = async () => {
     setViewMode("listening");
-    setSpokenText("My brother suddenly collapsed and he isn't responding...");
+    setSpokenText("");
+    setApiError("");
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.start();
+      setIsRecording(true);
+    } catch {
+      setApiError(
+        "Microphone access denied. Please enable it in your browser settings.",
+      );
+      setViewMode("options");
+    }
   };
 
   const copyLocationToClipboard = () => {
@@ -159,7 +203,9 @@ export default function EmergencyPage() {
     setTimeout(() => setCopiedLocation(false), 3000);
   };
 
-  const currentHospital = selectedHospital || defaultEmergencyHospitals[0];
+  const currentHospital =
+    selectedHospital ||
+    (nearbyHospitals.length > 0 ? nearbyHospitals[0] : null);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-red-100 selection:text-red-900 relative overflow-hidden">
@@ -171,7 +217,10 @@ export default function EmergencyPage() {
       {/* ========================================================================= */}
       <header className="px-6 sm:px-12 py-5 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2.5 cursor-pointer group">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
             <div className="flex items-center gap-0.5 h-6">
               <span className="w-1 h-3.5 bg-[#006666] rounded-full" />
               <span className="w-1 h-5.5 bg-[#006666] rounded-full" />
@@ -217,14 +266,17 @@ export default function EmergencyPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200/80 px-3.5 py-1.5 rounded-full">
               <MapPin className="w-3.5 h-3.5 text-teal-600" />
-              <span>Location found: <strong>{userLocation}</strong></span>
+              <span>
+                Location found: <strong>{userLocation}</strong>
+              </span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               Emergency care near you
             </h1>
             <p className="text-slate-600 text-xs sm:text-sm max-w-3xl leading-relaxed">
-              We've found emergency-capable care based on your location. Please proceed immediately or call for help if you cannot travel.
+              We've found emergency-capable care based on your location. Please
+              proceed immediately or call for help if you cannot travel.
             </p>
           </div>
 
@@ -232,9 +284,7 @@ export default function EmergencyPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* LEFT COLUMN: INTERACTIVE MAP WITH USER LOCATION & ROUTE */}
             <div className="lg:col-span-7 bg-white rounded-3xl p-3 border border-slate-200 shadow-xl overflow-hidden min-h-[480px]">
-              <RealMap
-                selectedHospitalDirections={currentHospital}
-              />
+              <RealMap selectedHospitalDirections={currentHospital} />
             </div>
 
             {/* RIGHT COLUMN: RECOMMENDED HERO FACILITY & SURROUNDING CARE */}
@@ -244,11 +294,16 @@ export default function EmergencyPage() {
                 <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
                     <h3 className="text-xl font-extrabold text-slate-900">
-                      {currentHospital.name}
+                      {currentHospital?.name || "Loading nearby hospitals..."}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1 text-xs font-bold text-red-600">
                       <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-                      <span>{currentHospital.status}</span>
+                      <span>
+                        {currentHospital?.emergencyCapable !== false
+                          ? "Verified Emergency Department"
+                          : currentHospital?.facilityType ||
+                            "Healthcare Facility"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -260,7 +315,11 @@ export default function EmergencyPage() {
                       Distance
                     </span>
                     <span className="text-sm font-extrabold text-slate-900 block mt-0.5">
-                      {currentHospital.distance}
+                      {currentHospital?.distanceKm
+                        ? `${currentHospital.distanceKm.toFixed(1)} km`
+                        : currentHospital?.distance
+                          ? `${currentHospital.distance} km`
+                          : "Calculating..."}
                     </span>
                   </div>
 
@@ -269,7 +328,9 @@ export default function EmergencyPage() {
                       Est. Travel
                     </span>
                     <span className="text-sm font-extrabold text-slate-900 block mt-0.5">
-                      {currentHospital.eta}
+                      {currentHospital?.distanceKm
+                        ? `~${Math.round(currentHospital.distanceKm * 3)} min`
+                        : "Calculating..."}
                     </span>
                   </div>
                 </div>
@@ -282,39 +343,54 @@ export default function EmergencyPage() {
                   <div className="space-y-2 text-xs text-slate-700 font-medium">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                      <span>Verified emergency-capable</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                      <span>Suitable for your reported situation</span>
+                      <span>
+                        {currentHospital?.emergencyCapable !== false
+                          ? "Verified emergency-capable"
+                          : "Healthcare facility"}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
                       <span>Nearest available option</span>
                     </div>
+                    {currentHospital?.capabilities && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                        <span>
+                          Capabilities:{" "}
+                          {Array.isArray(currentHospital.capabilities)
+                            ? currentHospital.capabilities.join(", ")
+                            : currentHospital.capabilities}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Primary Dual Actions (Matching Figma Screenshot 1) */}
+                {/* Primary Dual Actions */}
                 <div className="space-y-3 pt-1">
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${currentHospital.lat},${currentHospital.lng}`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${currentHospital?.latitude || currentHospital?.lat || coords.lat},${currentHospital?.longitude || currentHospital?.lng || coords.lng}`}
                     target="_blank"
                     rel="noreferrer"
                     className="w-full bg-[#005c6e] hover:bg-[#004d4d] active:bg-[#003d4a] text-white font-black py-3.5 px-5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
                   >
                     <Car className="w-4 h-4 text-white" />
                     <span>GET DIRECTIONS</span>
-                    <span className="text-[10px] font-normal text-teal-100 lowercase">Open in Maps</span>
+                    <span className="text-[10px] font-normal text-teal-100 lowercase">
+                      Open in Maps
+                    </span>
                   </a>
 
-                  <a
-                    href={`tel:${currentHospital.phone}`}
-                    className="w-full bg-white border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 font-bold py-3 px-5 rounded-2xl shadow-2xs transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-slate-600" />
-                    <span>CALL FACILITY</span>
-                  </a>
+                  {currentHospital?.phone && (
+                    <a
+                      href={`tel:${currentHospital.phone}`}
+                      className="w-full bg-white border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 font-bold py-3 px-5 rounded-2xl shadow-2xs transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-slate-600" />
+                      <span>CALL FACILITY</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -325,26 +401,41 @@ export default function EmergencyPage() {
                 </h4>
 
                 <div className="space-y-3">
-                  {defaultEmergencyHospitals.slice(1).map((h) => (
-                    <div
-                      key={h.id}
-                      className="p-4 rounded-2xl border border-slate-200/90 hover:border-teal-300 transition-all flex items-center justify-between gap-3 bg-slate-50/50"
-                    >
-                      <div className="space-y-0.5">
-                        <h5 className="text-sm font-bold text-slate-900">{h.name}</h5>
-                        <p className="text-xs text-slate-500 font-medium">
-                          {h.distance} • {h.eta}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => setSelectedHospital(h)}
-                        className="text-xs font-semibold text-[#006666] hover:bg-teal-50 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
-                      >
-                        View
-                      </button>
+                  {isFetchingHospitals ? (
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 text-xs text-slate-500 text-center animate-pulse">
+                      Searching emergency facilities near you...
                     </div>
-                  ))}
+                  ) : nearbyHospitals.length > 1 ? (
+                    nearbyHospitals.slice(1, 4).map((h: any, idx: number) => (
+                      <div
+                        key={h.id || idx}
+                        className="p-4 rounded-2xl border border-slate-200/90 hover:border-teal-300 transition-all flex items-center justify-between gap-3 bg-slate-50/50"
+                      >
+                        <div className="space-y-0.5">
+                          <h5 className="text-sm font-bold text-slate-900">
+                            {h.name}
+                          </h5>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {h.distanceKm
+                              ? `${h.distanceKm.toFixed(1)} km`
+                              : ""}{" "}
+                            • {h.facilityType || "Hospital"}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedHospital(h)}
+                          className="text-xs font-semibold text-[#006666] hover:bg-teal-50 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-xs text-slate-500 text-center">
+                      No other nearby facilities found
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -396,10 +487,15 @@ export default function EmergencyPage() {
 
             {/* Right Button: FIND EMERGENCY CARE (Solid Teal -> Opens Care Map Screen) */}
             <button
-              onClick={() => setViewMode("care-map")}
+              onClick={() => {
+                fetchNearbyHospitals(coords.lat, coords.lng);
+                setViewMode("care-map");
+              }}
               className="w-full sm:flex-1 bg-[#005c6e] hover:bg-[#004d4d] active:bg-[#003d4a] text-white font-black py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
             >
-              <span className="text-white font-bold text-base leading-none">✚</span>
+              <span className="text-white font-bold text-base leading-none">
+                ✚
+              </span>
               <span>FIND EMERGENCY CARE</span>
             </button>
           </div>
@@ -427,6 +523,19 @@ export default function EmergencyPage() {
               you in immediate danger?
             </h1>
           </div>
+
+          {apiError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{apiError}</span>
+              <button
+                onClick={() => setApiError("")}
+                className="ml-auto shrink-0 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* PRIMARY HERO ACTION: CALL 112 (Red Glowing Card Matching Figma) */}
           <div className="space-y-3">
@@ -532,17 +641,31 @@ export default function EmergencyPage() {
                 {selectedEmergencyType && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-red-900">Your Emergency Summary Ready:</span>
+                      <span className="font-bold text-red-900">
+                        Your Emergency Summary Ready:
+                      </span>
                       <button
                         onClick={copyLocationToClipboard}
                         className="text-[10px] font-bold text-red-700 bg-white px-2 py-1 rounded-lg border border-red-200 flex items-center gap-1 hover:bg-red-50"
                       >
-                        {copiedLocation ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedLocation ? "Copied!" : "Copy for SMS"}</span>
+                        {copiedLocation ? (
+                          <Check className="w-3 h-3 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                        <span>
+                          {copiedLocation ? "Copied!" : "Copy for SMS"}
+                        </span>
                       </button>
                     </div>
                     <p className="text-slate-700 italic">
-                      "URGENT: {quickEmergencies.find((q) => q.id === selectedEmergencyType)?.label}. Location: {userLocation}."
+                      "URGENT:{" "}
+                      {
+                        quickEmergencies.find(
+                          (q) => q.id === selectedEmergencyType,
+                        )?.label
+                      }
+                      . Location: {userLocation}."
                     </p>
                     <a
                       href={`tel:${activeNumber}`}
@@ -559,7 +682,10 @@ export default function EmergencyPage() {
 
           {/* DIRECT ACTION TO EMERGENCY CARE MAP SCREEN */}
           <button
-            onClick={() => setViewMode("care-map")}
+            onClick={() => {
+              fetchNearbyHospitals(coords.lat, coords.lng);
+              setViewMode("care-map");
+            }}
             className="w-full bg-[#005c6e] hover:bg-[#004d4d] text-white font-bold py-3.5 px-6 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
           >
             <MapPin className="w-4 h-4 text-white" />
@@ -570,7 +696,9 @@ export default function EmergencyPage() {
           <div className="bg-[#fee2e2]/60 border border-red-200/90 rounded-2xl p-4 sm:p-5 flex items-start gap-3 text-xs text-slate-700">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-red-950 font-bold">Important:</strong> If this is life-threatening, call {activeNumber} immediately. Do not wait for Alaafia to assess the situation.
+              <strong className="text-red-950 font-bold">Important:</strong> If
+              this is life-threatening, call {activeNumber} immediately. Do not
+              wait for Alaafia to assess the situation.
             </p>
           </div>
 

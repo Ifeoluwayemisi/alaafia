@@ -3,6 +3,7 @@ const SupportRequestController = require("../controllers/supportRequestControlle
 
 const router = express.Router();
 
+router.get("/", SupportRequestController.listForPatient);
 router.post("/", SupportRequestController.create);
 router.get("/:id", SupportRequestController.detailsForPatient);
 router.post("/:id/cancel", SupportRequestController.cancel);

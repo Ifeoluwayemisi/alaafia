@@ -141,6 +141,54 @@ class SupportRequestController {
       return fail(res, error);
     }
   }
+
+  /**
+   * List support requests for the authenticated user or guest
+   * GET /api/v1/support-requests
+   */
+  static async listForPatient(req, res) {
+    try {
+      const patientRef = resolveActor(req, req.query.patientRef);
+      if (!patientRef) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "patientRef or authentication required", details: [] },
+        });
+      }
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+      const offset = parseInt(req.query.offset) || 0;
+
+      const { count, rows } = await SupportRequest.findAndCountAll({
+        where: { patientRef },
+        order: [["createdAt", "DESC"]],
+        limit,
+        offset,
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          requests: rows.map((r) => ({
+            id: r.id,
+            status: r.status,
+            requestedAmountMinor: Number(r.requestedAmountMinor),
+            receivedAmountMinor: Number(r.receivedAmountMinor),
+            remainingAmountMinor: Number(r.requestedAmountMinor) - Number(r.receivedAmountMinor),
+            currency: r.currency,
+            shareToken: r.shareToken,
+            expiresAt: r.expiresAt,
+            message: r.message,
+            createdAt: r.createdAt,
+          })),
+          total: count,
+          limit,
+          offset,
+        },
+      });
+    } catch (error) {
+      return fail(res, error);
+    }
+  }
 }
 
 module.exports = SupportRequestController;
