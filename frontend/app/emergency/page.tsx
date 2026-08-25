@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Phone,
@@ -35,7 +34,6 @@ import VoiceListeningBox from "@/components/VoiceListeningBox";
 import MobileNav from "@/components/MobileNav";
 import { HospitalItem } from "@/components/RealMap";
 import { api } from "@/lib/api";
-import { getStoredUser } from "@/app/services/authService";
 
 // Dynamic import for Leaflet map component (No SSR)
 const RealMap = dynamic(() => import("@/components/RealMap"), {
@@ -49,19 +47,27 @@ const RealMap = dynamic(() => import("@/components/RealMap"), {
 });
 
 export default function EmergencyPage() {
-  const router = useRouter();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const [viewMode, setViewMode] = useState<"options" | "listening" | "care-map">("options");
+  const [viewMode, setViewMode] = useState<
+    "options" | "listening" | "care-map"
+  >("options");
   const [spokenText, setSpokenText] = useState("");
   const [cantSpeakOpen, setCantSpeakOpen] = useState(false);
-  const [selectedEmergencyType, setSelectedEmergencyType] = useState<string | null>(null);
+  const [selectedEmergencyType, setSelectedEmergencyType] = useState<
+    string | null
+  >(null);
   const [userLocation, setUserLocation] = useState("Lagos, Nigeria");
-  const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 6.5244, lng: 3.3792 });
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>({
+    lat: 6.5244,
+    lng: 3.3792,
+  });
   const [copiedLocation, setCopiedLocation] = useState(false);
   const [activeNumber, setActiveNumber] = useState("112");
-  const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(null);
+  const [selectedHospital, setSelectedHospital] = useState<HospitalItem | null>(
+    null,
+  );
   const [nearbyHospitals, setNearbyHospitals] = useState<any[]>([]);
   const [isFetchingHospitals, setIsFetchingHospitals] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -72,7 +78,9 @@ export default function EmergencyPage() {
   const fetchNearbyHospitals = async (lat: number, lng: number) => {
     setIsFetchingHospitals(true);
     try {
-      const result = await api.get(`/hospitals/nearby?latitude=${lat}&longitude=${lng}&radius=15`);
+      const result = await api.get(
+        `/hospitals/nearby?latitude=${lat}&longitude=${lng}&radius=15`,
+      );
       setNearbyHospitals(result.data?.hospitals || []);
     } catch (err) {
       setNearbyHospitals([]);
@@ -82,12 +90,6 @@ export default function EmergencyPage() {
   };
 
   useEffect(() => {
-    const user = getStoredUser();
-    if (!user) {
-      router.push("/signin");
-      return;
-    }
-
     if (typeof window !== "undefined" && "geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -101,7 +103,7 @@ export default function EmergencyPage() {
           setUserLocation("Lagos, Nigeria");
           fetchNearbyHospitals(6.5244, 3.3792);
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 5000 },
       );
     } else {
       fetchNearbyHospitals(6.5244, 3.3792);
@@ -109,19 +111,65 @@ export default function EmergencyPage() {
   }, [router]);
 
   const emergencyNumbers = [
-    { label: "112 National Emergency", number: "112", description: "Police, Fire & Ambulance" },
-    { label: "767 Lagos State Emergency", number: "767", description: "LASEMA Quick Response" },
-    { label: "199 Federal Fire Service", number: "199", description: "Fire & Rescue" },
-    { label: "Red Cross Ambulance", number: "+23480073327677", description: "First Aid & Medical Dispatch" },
+    {
+      label: "112 National Emergency",
+      number: "112",
+      description: "Police, Fire & Ambulance",
+    },
+    {
+      label: "767 Lagos State Emergency",
+      number: "767",
+      description: "LASEMA Quick Response",
+    },
+    {
+      label: "199 Federal Fire Service",
+      number: "199",
+      description: "Fire & Rescue",
+    },
+    {
+      label: "Red Cross Ambulance",
+      number: "+23480073327677",
+      description: "First Aid & Medical Dispatch",
+    },
   ];
 
   const quickEmergencies = [
-    { id: "chest-pain", label: "Chest pain / Heart", icon: Heart, color: "border-red-300 bg-red-50 text-red-700" },
-    { id: "unconscious", label: "Unconscious / Fainted", icon: UserX, color: "border-amber-300 bg-amber-50 text-amber-800" },
-    { id: "choking", label: "Choking / Can't breathe", icon: Activity, color: "border-rose-300 bg-rose-50 text-rose-800" },
-    { id: "bleeding", label: "Severe bleeding / Trauma", icon: AlertTriangle, color: "border-red-300 bg-red-50 text-red-700" },
-    { id: "fire", label: "Fire / Burn hazard", icon: Flame, color: "border-orange-300 bg-orange-50 text-orange-800" },
-    { id: "danger", label: "Immediate personal danger", icon: ShieldAlert, color: "border-purple-300 bg-purple-50 text-purple-800" },
+    {
+      id: "chest-pain",
+      label: "Chest pain / Heart",
+      icon: Heart,
+      color: "border-red-300 bg-red-50 text-red-700",
+    },
+    {
+      id: "unconscious",
+      label: "Unconscious / Fainted",
+      icon: UserX,
+      color: "border-amber-300 bg-amber-50 text-amber-800",
+    },
+    {
+      id: "choking",
+      label: "Choking / Can't breathe",
+      icon: Activity,
+      color: "border-rose-300 bg-rose-50 text-rose-800",
+    },
+    {
+      id: "bleeding",
+      label: "Severe bleeding / Trauma",
+      icon: AlertTriangle,
+      color: "border-red-300 bg-red-50 text-red-700",
+    },
+    {
+      id: "fire",
+      label: "Fire / Burn hazard",
+      icon: Flame,
+      color: "border-orange-300 bg-orange-50 text-orange-800",
+    },
+    {
+      id: "danger",
+      label: "Immediate personal danger",
+      icon: ShieldAlert,
+      color: "border-purple-300 bg-purple-50 text-purple-800",
+    },
   ];
 
   const handleStartSpeaking = async () => {
@@ -131,7 +179,9 @@ export default function EmergencyPage() {
     audioChunksRef.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      const mr = new MediaRecorder(stream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
       mediaRecorderRef.current = mr;
       mr.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
@@ -139,7 +189,9 @@ export default function EmergencyPage() {
       mr.start();
       setIsRecording(true);
     } catch {
-      setApiError("Microphone access denied. Please enable it in your browser settings.");
+      setApiError(
+        "Microphone access denied. Please enable it in your browser settings.",
+      );
       setViewMode("options");
     }
   };
@@ -151,7 +203,9 @@ export default function EmergencyPage() {
     setTimeout(() => setCopiedLocation(false), 3000);
   };
 
-  const currentHospital = selectedHospital || (nearbyHospitals.length > 0 ? nearbyHospitals[0] : null);
+  const currentHospital =
+    selectedHospital ||
+    (nearbyHospitals.length > 0 ? nearbyHospitals[0] : null);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-red-100 selection:text-red-900 relative overflow-hidden">
@@ -163,7 +217,10 @@ export default function EmergencyPage() {
       {/* ========================================================================= */}
       <header className="px-6 sm:px-12 py-5 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2.5 cursor-pointer group">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
             <div className="flex items-center gap-0.5 h-6">
               <span className="w-1 h-3.5 bg-[#006666] rounded-full" />
               <span className="w-1 h-5.5 bg-[#006666] rounded-full" />
@@ -209,14 +266,17 @@ export default function EmergencyPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200/80 px-3.5 py-1.5 rounded-full">
               <MapPin className="w-3.5 h-3.5 text-teal-600" />
-              <span>Location found: <strong>{userLocation}</strong></span>
+              <span>
+                Location found: <strong>{userLocation}</strong>
+              </span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               Emergency care near you
             </h1>
             <p className="text-slate-600 text-xs sm:text-sm max-w-3xl leading-relaxed">
-              We've found emergency-capable care based on your location. Please proceed immediately or call for help if you cannot travel.
+              We've found emergency-capable care based on your location. Please
+              proceed immediately or call for help if you cannot travel.
             </p>
           </div>
 
@@ -224,9 +284,7 @@ export default function EmergencyPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* LEFT COLUMN: INTERACTIVE MAP WITH USER LOCATION & ROUTE */}
             <div className="lg:col-span-7 bg-white rounded-3xl p-3 border border-slate-200 shadow-xl overflow-hidden min-h-[480px]">
-              <RealMap
-                selectedHospitalDirections={currentHospital}
-              />
+              <RealMap selectedHospitalDirections={currentHospital} />
             </div>
 
             {/* RIGHT COLUMN: RECOMMENDED HERO FACILITY & SURROUNDING CARE */}
@@ -243,7 +301,8 @@ export default function EmergencyPage() {
                       <span>
                         {currentHospital?.emergencyCapable !== false
                           ? "Verified Emergency Department"
-                          : currentHospital?.facilityType || "Healthcare Facility"}
+                          : currentHospital?.facilityType ||
+                            "Healthcare Facility"}
                       </span>
                     </div>
                   </div>
@@ -259,8 +318,8 @@ export default function EmergencyPage() {
                       {currentHospital?.distanceKm
                         ? `${currentHospital.distanceKm.toFixed(1)} km`
                         : currentHospital?.distance
-                        ? `${currentHospital.distance} km`
-                        : "Calculating..."}
+                          ? `${currentHospital.distance} km`
+                          : "Calculating..."}
                     </span>
                   </div>
 
@@ -284,7 +343,11 @@ export default function EmergencyPage() {
                   <div className="space-y-2 text-xs text-slate-700 font-medium">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                      <span>{currentHospital?.emergencyCapable !== false ? "Verified emergency-capable" : "Healthcare facility"}</span>
+                      <span>
+                        {currentHospital?.emergencyCapable !== false
+                          ? "Verified emergency-capable"
+                          : "Healthcare facility"}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
@@ -293,7 +356,12 @@ export default function EmergencyPage() {
                     {currentHospital?.capabilities && (
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                        <span>Capabilities: {Array.isArray(currentHospital.capabilities) ? currentHospital.capabilities.join(", ") : currentHospital.capabilities}</span>
+                        <span>
+                          Capabilities:{" "}
+                          {Array.isArray(currentHospital.capabilities)
+                            ? currentHospital.capabilities.join(", ")
+                            : currentHospital.capabilities}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -309,7 +377,9 @@ export default function EmergencyPage() {
                   >
                     <Car className="w-4 h-4 text-white" />
                     <span>GET DIRECTIONS</span>
-                    <span className="text-[10px] font-normal text-teal-100 lowercase">Open in Maps</span>
+                    <span className="text-[10px] font-normal text-teal-100 lowercase">
+                      Open in Maps
+                    </span>
                   </a>
 
                   {currentHospital?.phone && (
@@ -342,9 +412,14 @@ export default function EmergencyPage() {
                         className="p-4 rounded-2xl border border-slate-200/90 hover:border-teal-300 transition-all flex items-center justify-between gap-3 bg-slate-50/50"
                       >
                         <div className="space-y-0.5">
-                          <h5 className="text-sm font-bold text-slate-900">{h.name}</h5>
+                          <h5 className="text-sm font-bold text-slate-900">
+                            {h.name}
+                          </h5>
                           <p className="text-xs text-slate-500 font-medium">
-                            {h.distanceKm ? `${h.distanceKm.toFixed(1)} km` : ""} • {h.facilityType || "Hospital"}
+                            {h.distanceKm
+                              ? `${h.distanceKm.toFixed(1)} km`
+                              : ""}{" "}
+                            • {h.facilityType || "Hospital"}
                           </p>
                         </div>
 
@@ -418,7 +493,9 @@ export default function EmergencyPage() {
               }}
               className="w-full sm:flex-1 bg-[#005c6e] hover:bg-[#004d4d] active:bg-[#003d4a] text-white font-black py-3.5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
             >
-              <span className="text-white font-bold text-base leading-none">✚</span>
+              <span className="text-white font-bold text-base leading-none">
+                ✚
+              </span>
               <span>FIND EMERGENCY CARE</span>
             </button>
           </div>
@@ -451,7 +528,10 @@ export default function EmergencyPage() {
             <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{apiError}</span>
-              <button onClick={() => setApiError("")} className="ml-auto shrink-0 cursor-pointer">
+              <button
+                onClick={() => setApiError("")}
+                className="ml-auto shrink-0 cursor-pointer"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -561,17 +641,31 @@ export default function EmergencyPage() {
                 {selectedEmergencyType && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-red-900">Your Emergency Summary Ready:</span>
+                      <span className="font-bold text-red-900">
+                        Your Emergency Summary Ready:
+                      </span>
                       <button
                         onClick={copyLocationToClipboard}
                         className="text-[10px] font-bold text-red-700 bg-white px-2 py-1 rounded-lg border border-red-200 flex items-center gap-1 hover:bg-red-50"
                       >
-                        {copiedLocation ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedLocation ? "Copied!" : "Copy for SMS"}</span>
+                        {copiedLocation ? (
+                          <Check className="w-3 h-3 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                        <span>
+                          {copiedLocation ? "Copied!" : "Copy for SMS"}
+                        </span>
                       </button>
                     </div>
                     <p className="text-slate-700 italic">
-                      "URGENT: {quickEmergencies.find((q) => q.id === selectedEmergencyType)?.label}. Location: {userLocation}."
+                      "URGENT:{" "}
+                      {
+                        quickEmergencies.find(
+                          (q) => q.id === selectedEmergencyType,
+                        )?.label
+                      }
+                      . Location: {userLocation}."
                     </p>
                     <a
                       href={`tel:${activeNumber}`}
@@ -602,7 +696,9 @@ export default function EmergencyPage() {
           <div className="bg-[#fee2e2]/60 border border-red-200/90 rounded-2xl p-4 sm:p-5 flex items-start gap-3 text-xs text-slate-700">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              <strong className="text-red-950 font-bold">Important:</strong> If this is life-threatening, call {activeNumber} immediately. Do not wait for Alaafia to assess the situation.
+              <strong className="text-red-950 font-bold">Important:</strong> If
+              this is life-threatening, call {activeNumber} immediately. Do not
+              wait for Alaafia to assess the situation.
             </p>
           </div>
 

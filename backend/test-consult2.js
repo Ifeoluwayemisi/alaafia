@@ -1,0 +1,6 @@
+fetch('http://localhost:5000/api/v1/consultations/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({language:'en-NG'})})
+  .then(r=>r.json())
+  .then(c=>fetch('http://localhost:5000/api/v1/consultations/'+c.consultationId+'/submit', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({input:'I have a mild headache', language:'en-NG', age:25, isPregnant:false, chronicDiseases:[]})}))
+  .then(r=>r.json())
+  .then(console.log)
+  .catch(console.error)

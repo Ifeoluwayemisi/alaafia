@@ -46,7 +46,7 @@ const ensureSchema = async (sequelize) => {
   // preserves existing MVP payment rows without introducing a second migration
   // framework. PostgreSQL enum values cannot be changed by sync alone.
   await sequelize.query(
-    'ALTER TYPE "enum_payment_requests_status" ADD VALUE IF NOT EXISTS \'PROCESSING\';',
+    "ALTER TYPE \"enum_payment_requests_status\" ADD VALUE IF NOT EXISTS 'PROCESSING';",
   );
   // Safely migrate legacy AWAITING_PAYMENT status if it exists in the enum
   await sequelize.query(`

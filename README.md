@@ -1,10 +1,10 @@
-# Alaafia 🩺
+# Alafia 🩺
 
 > **From uncertainty to appropriate care.**
 
-Alaafia is a voice-first, safety-controlled healthcare navigation platform designed for the Nigerian context. It helps users describe symptoms, understand potential urgency, receive safety guidance, and identify healthcare facilities appropriate to their situation.
+Alafia is a voice-first, safety-controlled healthcare navigation platform designed for the Nigerian context. It helps users describe symptoms, understand potential urgency, receive safety guidance, and identify healthcare facilities appropriate to their situation.
 
-Alaafia is not a diagnostic chatbot. Its purpose is to reduce the delay between a worrying symptom appearing and a person reaching appropriate care.
+Alafia is not a diagnostic chatbot. Its purpose is to reduce the delay between a worrying symptom appearing and a person reaching appropriate care.
 
 ---
 
@@ -18,12 +18,13 @@ Alaafia is not a diagnostic chatbot. Its purpose is to reduce the delay between 
 
 ## Live Demo
 
-- **Live application**: To be added
-- **Backend API**: 
-```text
-alaafia-production.up.railway.app
-```
+- **Repository**: [github.com/Ifeoluwayemisi/alaafia](https://github.com/Ifeoluwayemisi/alaafia)
+- **Live application**: [alaafia-8n2m.vercel.app](https://alaafia-8n2m.vercel.app/)
+- **Backend API**: [alaafia-production.up.railway.app](https://alaafia-production.up.railway.app)
+- **API documentation**: [alaafia-production.up.railway.app/api-docs](https://alaafia-production.up.railway.app/api-docs)
 - **Recorded demo**: To be added
+
+The API documentation is also available at [Swagger UI](https://alaafia-production.up.railway.app/api-docs).
 
 Local backend URL:
 
@@ -391,7 +392,7 @@ npm run dev
 
 Import:
 
-[backend/postman/Alaafia-MVP.postman_collection.json](backend/postman/Alaafia-MVP.postman_collection.json)
+[backend/docs/postman_collection.json](backend/docs/postman_collection.json)
 
 The collection contains the authentication and golden-path requests. Run them in this order:
 
@@ -422,11 +423,21 @@ For voice testing, use the `Upload Voice Recording` request with a `.webm` file 
 - Guest sessions
 - Email verification
 - JWT authentication
+- Google ID-token authentication
 - Text consultations
+- Multi-turn consultation messages
+- WebM voice upload and transcript confirmation
+- Self-hosted Whisper speech-to-text service
+- OpenAI structured symptom extraction with fallback normalization
 - Deterministic triage
 - Simulated facility retrieval and ranking
+- Nearby and recommended hospital endpoints
 - Hospital selection data
-- Emergency summary persistence
+- Public emergency dashboard access
+- Emergency Mode activation for CRITICAL cases
+- Emergency summary and simulated handoff persistence
+- Payment initiation, verification, cancellation, and webhook handling
+- Healthcare support-request creation, sharing, cancellation, and contributions
 - YarnGPT TTS adapter
 
 ### Simulated for the MVP
@@ -435,14 +446,15 @@ For voice testing, use the `Upload Voice Recording` request with a `.webm` file 
 - Facility readiness
 - Provider handoff receipt
 - Live hospital operational status
+- Development-only mock payment confirmation
 
 ### Pending external access or additional validation
 
 - NHFR/HFR synchronization. NHFR has not yet provided API access, so simulated facilities are used and labelled accordingly.
 - Verified partner-facility data.
 - Wema integration, pending official API/product access.
-- Real browser audio testing through the self-hosted Whisper service.
 - Full provider readiness workflow.
+- Real browser audio testing through the deployed self-hosted Whisper service.
 - Production clinical validation.
 
 We do not claim that simulated registry data represents real-time hospital capacity.
@@ -471,10 +483,16 @@ Backend MVP golden path       Working
 PostgreSQL persistence        Working
 Authentication               Working
 Email verification           Working
+Google OAuth ID-token login   Implemented
+OpenAI symptom extraction    Implemented with fallback
+Self-hosted Whisper STT       Deployed separately
 YarnGPT TTS adapter           Working
 Text triage flow              Verified
 Facility matching             Working with simulated data
+Emergency dashboard           Public
 Emergency summary             Working as simulated handoff
+Payments and support          Implemented with live/mock boundaries
+Swagger documentation         Available
 NHFR integration              Pending access
 Wema integration              Pending official access
 Provider readiness            Partial data model only
