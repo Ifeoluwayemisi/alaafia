@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const dns = require("dns");
 const { EmailVerificationCode } = require("../models");
 
 const CODE_TTL_MINUTES = 10;
@@ -9,7 +10,7 @@ const hashCode = (code) =>
 
 const generateCode = () => crypto.randomInt(100000, 1000000).toString();
 
-const getTransporter = () => {
+const getTransporter = async () => {
   if (
     !process.env.SMTP_HOST ||
     !process.env.SMTP_USER ||
@@ -18,18 +19,34 @@ const getTransporter = () => {
     return null;
   }
 
+  // Railway containers cannot route IPv6, and resolver-level hints
+  // (family option, --dns-result-order) have proven unreliable through
+  // nodemailer's socket layer. Resolve to a literal IPv4 address ourselves;
+  // the hostname survives only as tls.servername so certificate validation
+  // still matches the real server.
+  let ipv4;
+  try {
+    const resolved = await dns.promises.lookup(process.env.SMTP_HOST, { family: 4 });
+    ipv4 = resolved.address;
+  } catch (error) {
+    console.error(
+      `[email] SMTP host has no IPv4 record host=${process.env.SMTP_HOST} code=${error.code || "UNKNOWN"}`
+    );
+    return null;
+  }
+
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: ipv4,
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === "true",
-    // PaaS containers frequently lack IPv6 egress; without this, Node >=17
-    // resolves SMTP hosts to their AAAA record first and connections die
-    // with ENETUNREACH before falling back to IPv4.
     family: 4,
     // Fail fast so account creation never hangs on an unreachable relay.
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
+    tls: {
+      servername: process.env.SMTP_HOST,
+    },
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -51,7 +68,7 @@ const issueVerificationCode = async (user) => {
     expiresAt,
   });
 
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   let sent = false;
   if (transporter) {
     try {
@@ -82,7 +99,7 @@ const issueVerificationCode = async (user) => {
 };
 
 const sendWelcomeEmail = async (user) => {
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   if (!transporter) {
     return { sent: false, reason: "SMTP_NOT_CONFIGURED" };
   }
