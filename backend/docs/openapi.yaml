@@ -6,10 +6,10 @@ info:
     REST API for ALAFIA, a voice-first, safety-controlled healthcare navigation platform.
     AI structures user input; deterministic ALAFIA rules control triage severity.
 servers:
+  - url: https://alaafia-production.up.railway.app/api/v1
+    description: Production (Railway)
   - url: http://localhost:5000/api/v1
     description: Local development
-  - url: https://api.alafia.ai/api/v1
-    description: Production placeholder
 
 tags:
   - name: Health
@@ -757,6 +757,125 @@ paths:
         "401":
           description: Webhook authentication cannot be verified
 
+  /consultations/start:
+    post:
+      tags: [Consultation]
+      summary: Initialize a consultation shell (legacy flow)
+      responses:
+        "201":
+          description: Consultation initialized
+
+  /consultations/{consultationId}/submit:
+    post:
+      tags: [Consultation]
+      summary: Submit voice/text input and receive triage + facility matches (legacy one-shot flow)
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                inputType: { type: string, enum: [TEXT, VOICE] }
+                message: { type: string }
+                language: { type: string, example: en-NG }
+      responses:
+        "200":
+          description: Triage result with facility recommendations
+
+  /consultations/{consultationId}/emergency-summary:
+    post:
+      tags: [Emergency]
+      summary: Generate the emergency handoff summary for a consultation
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      responses:
+        "200":
+          description: Emergency handoff summary generated
+        "404":
+          description: Consultation not found
+
+  /triage/{consultationId}/guidance:
+    get:
+      tags: [Triage]
+      summary: Get safety guidance for a triaged consultation (alias of /guidance/{consultationId})
+      parameters:
+        - $ref: "#/components/parameters/ConsultationId"
+      responses:
+        "200":
+          description: Guidance returned
+        "404":
+          description: No triage assessment exists for this consultation
+
+  /payments/{id}/dev-confirm:
+    post:
+      tags: [Payments]
+      summary: Simulate payment completion (mock gateway only)
+      description: |
+        Development/test-only endpoint. Requires PAYMENT_GATEWAY=mock and a
+        non-production NODE_ENV; always returns 409 MOCK_GATEWAY_REQUIRED on
+        the real Wema gateway. Never available in production.
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Payment marked PAID via simulated gateway status
+        "404":
+          description: Payment not found
+        "409":
+          description: Real gateway active; simulation refused
+
+  /facilities/{facilityId}:
+    get:
+      tags: [Facilities]
+      summary: Get a healthcare facility by ID
+      parameters:
+        - $ref: "#/components/parameters/FacilityId"
+      responses:
+        "200":
+          description: Facility details
+        "404":
+          description: Facility not found
+    put:
+      tags: [Facilities]
+      summary: Update facility attributes
+      parameters:
+        - $ref: "#/components/parameters/FacilityId"
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Facility updated
+    delete:
+      tags: [Facilities]
+      summary: Remove a facility record
+      parameters:
+        - $ref: "#/components/parameters/FacilityId"
+      responses:
+        "200":
+          description: Facility deleted
+
+  /facilities/{facilityId}/status:
+    put:
+      tags: [Facilities]
+      summary: Update operational status of a facility
+      parameters:
+        - $ref: "#/components/parameters/FacilityId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operationalStatus: { type: string }
+      responses:
+        "200":
+          description: Operational status updated
+
+
 components:
   parameters:
     ConsultationId:
@@ -766,6 +885,11 @@ components:
       schema: { type: string, format: uuid }
     HospitalId:
       name: hospitalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FacilityId:
+      name: facilityId
       in: path
       required: true
       schema: { type: string, format: uuid }
