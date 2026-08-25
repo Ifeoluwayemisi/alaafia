@@ -54,6 +54,50 @@ const getTransporter = async () => {
   });
 };
 
+const sendViaBrevo = async ({ to, subject, text, html }) => {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        name: process.env.EMAIL_FROM_NAME || "ALAFIA",
+        email: process.env.EMAIL_SENDER,
+      },
+      to: [{ email: to }],
+      subject,
+      textContent: text,
+      htmlContent: html,
+    }),
+  });
+  if (!response.ok) {
+    const err = new Error(`Brevo API responded ${response.status}`);
+    err.responseCode = response.status;
+    throw err;
+  }
+};
+
+/**
+ * Delivery dispatch: Brevo HTTP API first (works over port 443 where PaaS
+ * egress is unrestricted; SMTP ports are commonly filtered), then classic
+ * SMTP for environments that have it configured (e.g. local development).
+ */
+const sendEmail = async ({ to, subject, text, html }) => {
+  if (process.env.BREVO_API_KEY) {
+    await sendViaBrevo({ to, subject, text, html });
+    return { provider: "BREVO" };
+  }
+  const transporter = await getTransporter();
+  if (!transporter) {
+    return null;
+  }
+  await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text, html });
+  return { provider: "SMTP" };
+};
+
 const issueVerificationCode = async (user) => {
   const code = generateCode();
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000);
@@ -68,27 +112,23 @@ const issueVerificationCode = async (user) => {
     expiresAt,
   });
 
-  const transporter = await getTransporter();
   let sent = false;
-  if (transporter) {
-    try {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: user.email,
-        subject: "Your ALAFIA verification code",
-        text: `Your ALAFIA verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
-        html: `<p>Your ALAFIA verification code is <strong>${code}</strong>.</p><p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
-      });
-      sent = true;
-    } catch (error) {
-      // The account exists and the code is stored; a delivery hiccup must not
-      // surface as a 500 or leak SMTP internals. The client can recover via
-      // POST /api/v1/auth/resend-verification.
-      console.error(
-        `[email] verification code delivery failed smtpCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
-      );
-      sent = false;
-    }
+  try {
+    const outcome = await sendEmail({
+      to: user.email,
+      subject: "Your ALAFIA verification code",
+      text: `Your ALAFIA verification code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.`,
+      html: `<p>Your ALAFIA verification code is <strong>${code}</strong>.</p><p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
+    });
+    sent = Boolean(outcome);
+  } catch (error) {
+    // The account exists and the code is stored; a delivery hiccup must not
+    // surface as a 500 or leak provider internals. The client can recover via
+    // POST /api/v1/auth/resend-verification.
+    console.error(
+      `[email] verification code delivery failed providerCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
+    );
+    sent = false;
   }
 
   return {
@@ -99,14 +139,8 @@ const issueVerificationCode = async (user) => {
 };
 
 const sendWelcomeEmail = async (user) => {
-  const transporter = await getTransporter();
-  if (!transporter) {
-    return { sent: false, reason: "SMTP_NOT_CONFIGURED" };
-  }
-
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    await sendEmail({
       to: user.email,
       subject: "Welcome to ALAFIA",
       text: `Welcome to ALAFIA, ${user.name}! Your email has been verified. ALAFIA helps you understand health urgency and find the right next step.`,
@@ -115,9 +149,9 @@ const sendWelcomeEmail = async (user) => {
     return { sent: true };
   } catch (error) {
     console.error(
-      `[email] welcome email delivery failed smtpCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
+      `[email] welcome email delivery failed providerCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
     );
-    return { sent: false, reason: "SMTP_SEND_FAILED" };
+    return { sent: false, reason: "EMAIL_SEND_FAILED" };
   }
 };
 
