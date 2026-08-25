@@ -26,6 +26,10 @@ const getTransporter = () => {
     // resolves SMTP hosts to their AAAA record first and connections die
     // with ENETUNREACH before falling back to IPv4.
     family: 4,
+    // Fail fast so account creation never hangs on an unreachable relay.
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -63,7 +67,9 @@ const issueVerificationCode = async (user) => {
       // The account exists and the code is stored; a delivery hiccup must not
       // surface as a 500 or leak SMTP internals. The client can recover via
       // POST /api/v1/auth/resend-verification.
-      console.error(`[email] verification code delivery failed code=SMTP_SEND_FAILED`);
+      console.error(
+        `[email] verification code delivery failed smtpCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
+      );
       sent = false;
     }
   }
@@ -91,7 +97,9 @@ const sendWelcomeEmail = async (user) => {
     });
     return { sent: true };
   } catch (error) {
-    console.error(`[email] welcome email delivery failed code=SMTP_SEND_FAILED`);
+    console.error(
+      `[email] welcome email delivery failed smtpCode=${error.code || error.responseCode || "UNKNOWN"} detail=${error.message ? String(error.message).slice(0, 120) : "none"}`
+    );
     return { sent: false, reason: "SMTP_SEND_FAILED" };
   }
 };
