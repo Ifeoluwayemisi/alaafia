@@ -1,5 +1,13 @@
 require("dotenv").config();
 
+// Railway containers have no usable IPv6 egress. Node >=17 prefers AAAA
+// records, which made outbound SMTP die with ENETUNREACH. Force IPv4-first
+// resolution process-wide (nodemailer ignores per-transport family hints).
+const dns = require("dns");
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
+
 const app = require("./app");
 const { sequelize } = require("./models");
 const ensureSchema = require("./utils/schemaMigrations");
